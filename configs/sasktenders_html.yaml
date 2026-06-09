@@ -1,0 +1,61 @@
+# SaskTenders Public Search - SourceConfig
+# Minimal implementation for Source #3: static HTML table extraction
+# This config validates HTMLExtractor for simple table-based procurement sites
+
+source_id: sasktenders_html
+name: SaskTenders Public Search
+type: html
+url: https://sasktenders.ca/content/public/Search.aspx?statusId=-2
+enabled: false  # BLOCKED: Site uses JavaScript rendering (ASP.NET UpdatePanel)
+interval_hours: 12
+
+# No authentication required
+# NOTE: Live site requires JavaScript/UpdatePanel rendering - not suitable for static HTML extraction
+# v1 SaskTenders scraper also appears non-operational (expects static table)
+auth:
+  type: none
+
+# HTML-specific extraction configuration
+extraction:
+  # Table container selector
+  container_selector: "table"
+
+  # Row selector within container
+  row_selector: "tr"
+
+  # Skip first row (header)
+  skip_header_rows: 1
+
+  # Field mappings using positional cell extraction
+  # Format: "cell[N]" for cell index, ".text" for text content, ".a.href" for links
+  columns:
+    source_id: "cell[0].text"         # Tender ID
+    title: "cell[1].text"             # Title
+    buyer: "cell[2].text"             # Organization
+    closing_date: "cell[3].text"      # Closing date
+    url: "cell[0].a.href"             # Link href from first cell
+
+  # Base URL for converting relative links to absolute
+  url_base: "https://sasktenders.ca"
+
+# Validation rules
+validation:
+  required_fields:
+    - title
+    - source_id
+    - buyer
+  date_format: null  # Flexible date parsing (SaskTenders uses various formats)
+  min_title_length: 10
+  max_title_length: 500
+  min_completeness_rate: 0.6  # No description field (title-only classification)
+
+# Health monitoring thresholds
+health:
+  min_records_expected: 5   # Saskatchewan typically has 5+ open tenders
+  max_days_silent: 2
+  error_rate_threshold: 0.1
+  validation_fail_threshold: 0.3
+
+# Metadata
+version: 1
+status: testing  # BLOCKED: Site changed to JavaScript rendering - not suitable for static HTML validation

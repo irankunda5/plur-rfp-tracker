@@ -1,0 +1,51 @@
+# CanadaBuys CSV Feed - SourceConfig
+# This config replaces the legacy CanadaBuysScraper with a declarative configuration
+
+source_id: canadabuys_csv
+name: CanadaBuys CSV Feed
+type: csv
+url: https://canadabuys.canada.ca/opendata/pub/newTenderNotice-nouvelAvisAppelOffres.csv
+enabled: true
+interval_hours: 6
+
+# No authentication required
+auth:
+  type: none
+
+# CSV-specific extraction configuration
+extraction:
+  delimiter: ","
+  encoding: utf-8
+  skip_rows: 0
+  has_header: true
+
+  # Column mappings: {target_field: source_column_name}
+  columns:
+    source_id: referenceNumber-numeroReference
+    title: title-titre-eng
+    description: tenderDescription-descriptionAppelOffres-eng
+    buyer: contractingEntityName-nomEntitContractante-eng
+    closing_date: tenderClosingDate-appelOffresDateCloture
+    url: noticeURL-URLavis-eng
+    notice_type: noticeType-avisType-eng
+
+# Validation rules
+validation:
+  required_fields:
+    - title
+    - source_id
+  date_format: "%Y-%m-%dT%H:%M:%S"
+  min_title_length: 5
+  max_title_length: 500
+  min_completeness_rate: 0.8
+
+# Health monitoring thresholds
+health:
+  min_records_expected: 10
+  max_days_silent: 2
+  error_rate_threshold: 0.2
+  validation_fail_threshold: 0.5
+
+# Metadata
+version: 1
+status: production  # 72h validation: 6 runs, 6 successful, 0 failed

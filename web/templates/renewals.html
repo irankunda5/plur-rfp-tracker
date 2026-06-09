@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% set active_page = "renewals" %}
+{% block title %}Software Renewals - PLUR RFP Tracker{% endblock %}
+
+{% block content %}
+<style>
+    .urgency-urgent { background: #fef3c7; }
+    .urgency-soon { background: #fff7ed; }
+    .badge-high { background: #dbeafe; color: #1e40af; }
+    .badge-medium { background: #fef3c7; color: #92400e; }
+    .badge-low { background: #e5e7eb; color: #6b7280; }
+    .badge-urgent { background: #fde68a; color: #92400e; font-weight: 700; }
+    .badge-engage { background: #fed7aa; color: #9a3412; }
+    .vendor-link { cursor: pointer; }
+    .vendor-link:hover { text-decoration: underline; color: #2563eb; }
+
+    /* Category tags */
+    .category-tag {
+        display: inline-block; padding: 5px 12px; border-radius: 14px;
+        font-size: 12px; font-weight: 600; text-decoration: none;
+        cursor: pointer; transition: background 0.15s, box-shadow 0.15s;
+        border: 1px solid transparent;
+    }
+    .category-tag:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.15); text-decoration: none; }
+    .category-security { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+    .category-security:hover { background: #bfdbfe; color: #1e3a8a; }
+    .category-it { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .category-it:hover { background: #fde68a; color: #78350f; }
+    .category-general { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+    .category-general:hover { background: #e5e7eb; color: #374151; }
+    .category-reseller { background: #fdf4ff; color: #7e22ce; border-color: #e9d5ff; }
+    .category-reseller:hover { background: #e9d5ff; color: #6b21a8; }
+    .category-intel { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+    .category-intel:hover { background: #fed7aa; color: #9a3412; }
+    .category-active { box-shadow: 0 0 0 2px #2563eb; }
+
+    /* Tender intelligence section */
+    .tender-section { margin-top: 32px; }
+    .tender-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: #1a1a2e; }
+    .tender-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .tender-badge-high { background: #dbeafe; color: #1e40af; }
+    .tender-badge-medium { background: #fef3c7; color: #92400e; }
+    .days-past { color: #9ca3af; font-style: italic; font-size: 11px; }
+    .days-soon { color: #b45309; font-weight: 600; font-size: 11px; }
+    .days-future { color: #6b7280; font-size: 11px; }
+</style>
+
+<!-- Summary cards -->
+<div class="summary-cards">
+    <div class="summary-card">
+        <div class="label">Upcoming Renewals</div>
+        <div class="value">{{ total_count }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Actionable Now</div>
+        <div class="value" style="{% if actionable_count > 0 %}color: #b45309;{% endif %}">{{ actionable_count }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Total Historical Value</div>
+        <div class="value" style="font-size: 18px;">{{ total_value | format_currency }}</div>
+    </div>
+    {% if tender_total > 0 %}
+    <div class="summary-card" style="border-left: 3px solid #c2410c;">
+        <div class="label" style="color: #c2410c;">Tender Predictions</div>
+        <div class="value" style="color: #c2410c; font-size: 20px;">{{ tender_total }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<p style="font-size: 13px; color: #888; margin-bottom: 12px;">
+    Projected from Open Canada contracts data. Renewals flagged 120 days before expiry for early engagement.
+    Showing renewals within {{ filter_days }} days.
+</p>
+
+<!-- Category tags -->
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+    {% set categories = [
+        ('Firewalls', 'firewall OR fortinet OR palo alto OR check point OR sonicwall OR barracuda', 'security'),
+        ('EDR/Endpoint', 'endpoint OR crowdstrike OR sentinelone OR carbon black OR trellix OR cylance OR sophos OR symantec', 'security'),
+        ('IAM/PAM', 'cyberark OR beyondtrust OR sailpoint OR okta OR entrust OR idemia', 'security'),
+        ('SIEM', 'splunk OR logrhythm OR qradar OR elastic', 'security'),
+        ('Vulnerability', 'tenable OR nessus OR qualys OR rapid7 OR vulnerability', 'security'),
+        ('Email Security', 'proofpoint OR mimecast OR email security OR email gateway', 'security'),
+        ('Backup/Recovery', 'backup OR veeam OR commvault OR veritas OR cohesity', 'it'),
+        ('Cloud', 'cloud OR aws OR azure OR zscaler OR netskope', 'general'),
+        ('Security (Reseller)', 'reseller', 'reseller'),
+        ('DLP', 'data loss prevention OR forcepoint OR digital guardian', 'intel'),
+        ('Insider Threat', 'insider threat OR varonis OR dtex OR securonix', 'intel'),
+        ('OT Security', 'nozomi OR claroty OR dragos OR ot security', 'intel'),
+        ('Threat Intel', 'threat intelligence OR recorded future OR mandiant OR anomali', 'intel'),
+    ] %}
+    {% for label, query, color in categories %}
+    <a href="/renewals?q={{ query | urlencode }}"
+       class="category-tag category-{{ color }}{% if filter_q == query %} category-active{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<!-- Filter bar -->
+<form class="filter-bar" method="get" action="/renewals">
+    <div class="filter-group">
+        <label>Department</label>
+        <select name="dept">
+            <option value="">All</option>
+            {% for d in departments %}
+            <option value="{{ d }}" {% if filter_dept == d %}selected{% endif %}>{{ d | truncate(50) }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Relevance</label>
+        <select name="relevance">
+            <option value="">All</option>
+            <option value="HIGH" {% if filter_relevance == 'HIGH' %}selected{% endif %}>HIGH</option>
+            <option value="MEDIUM" {% if filter_relevance == 'MEDIUM' %}selected{% endif %}>MEDIUM</option>
+            <option value="LOW" {% if filter_relevance == 'LOW' %}selected{% endif %}>LOW</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Window</label>
+        <select name="days">
+            <option value="120" {% if filter_days == 120 %}selected{% endif %}>120 days</option>
+            <option value="180" {% if filter_days == 180 %}selected{% endif %}>180 days</option>
+            <option value="365" {% if filter_days == 365 %}selected{% endif %}>1 year</option>
+            <option value="730" {% if filter_days == 730 %}selected{% endif %}>2 years</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Search</label>
+        <input type="text" name="q" value="{{ filter_q }}" placeholder="vendor, dept, description...">
+    </div>
+    {% if filter_vendor %}
+    <input type="hidden" name="vendor" value="{{ filter_vendor }}">
+    <span class="tag" style="font-size: 12px;">Vendor: {{ filter_vendor }}
+        <a href="/renewals?dept={{ filter_dept }}&relevance={{ filter_relevance }}&days={{ filter_days }}" style="color: #888; margin-left: 4px;">x</a>
+    </span>
+    {% endif %}
+    <button type="submit" class="btn btn-sm">Filter</button>
+    {% if filter_vendor or filter_dept or filter_relevance or filter_days != 365 %}
+    <a href="/renewals" class="btn btn-sm btn-clear">Clear</a>
+    {% endif %}
+</form>
+
+<!-- Renewals table -->
+<div class="table-wrap">
+    <table>
+        <thead>
+            {% set sp = '?dept=' + filter_dept + '&relevance=' + filter_relevance + '&days=' + filter_days|string + '&q=' + filter_q + ('&vendor=' + filter_vendor if filter_vendor else '') %}
+            <tr>
+                <th><a class="sort-link{% if filter_sort == 'engage_by' or filter_sort == 'engage_by_desc' %} active{% endif %}" href="/renewals{{ sp }}&sort={% if filter_sort == 'engage_by' %}engage_by_desc{% else %}engage_by{% endif %}">Engage By {% if filter_sort == 'engage_by' %}&#9650;{% elif filter_sort == 'engage_by_desc' %}&#9660;{% endif %}</a></th>
+                <th><a class="sort-link{% if filter_sort == 'vendor' or filter_sort == 'vendor_desc' %} active{% endif %}" href="/renewals{{ sp }}&sort={% if filter_sort == 'vendor' %}vendor_desc{% else %}vendor{% endif %}">Vendor {% if filter_sort == 'vendor' %}&#9650;{% elif filter_sort == 'vendor_desc' %}&#9660;{% endif %}</a></th>
+                <th><a class="sort-link{% if filter_sort == 'department' or filter_sort == 'department_desc' %} active{% endif %}" href="/renewals{{ sp }}&sort={% if filter_sort == 'department' %}department_desc{% else %}department{% endif %}">Department {% if filter_sort == 'department' %}&#9650;{% elif filter_sort == 'department_desc' %}&#9660;{% endif %}</a></th>
+                <th>Product</th>
+                <th><a class="sort-link{% if filter_sort == 'value' or filter_sort == 'value_asc' %} active{% endif %}" href="/renewals{{ sp }}&sort={% if filter_sort == 'value' %}value_asc{% else %}value{% endif %}">Last Value {% if filter_sort == 'value' %}&#9660;{% elif filter_sort == 'value_asc' %}&#9650;{% endif %}</a></th>
+                <th><a class="sort-link{% if filter_sort == 'total_value' or filter_sort == 'total_value_asc' %} active{% endif %}" href="/renewals{{ sp }}&sort={% if filter_sort == 'total_value' %}total_value_asc{% else %}total_value{% endif %}">Total Value {% if filter_sort == 'total_value' %}&#9660;{% elif filter_sort == 'total_value_asc' %}&#9650;{% endif %}</a></th>
+                <th><a class="sort-link{% if filter_sort == 'count' %} active{% endif %}" href="/renewals{{ sp }}&sort=count">#</a></th>
+                <th><a class="sort-link{% if filter_sort == 'renewal' or filter_sort == 'renewal_desc' %} active{% endif %}" href="/renewals{{ sp }}&sort={% if filter_sort == 'renewal' %}renewal_desc{% else %}renewal{% endif %}">Renewal {% if filter_sort == 'renewal' %}&#9650;{% elif filter_sort == 'renewal_desc' %}&#9660;{% endif %}</a></th>
+                <th><a class="sort-link{% if filter_sort == 'relevance' %} active{% endif %}" href="/renewals{{ sp }}&sort=relevance">Relevance</a></th>
+                <th>Source</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in renewals %}
+            {% set engage_days = (r.engage_by | days_until) %}
+            <tr class="{% if engage_days is not none and engage_days <= 0 %}urgency-urgent{% elif engage_days is not none and engage_days <= 90 %}urgency-soon{% endif %}">
+                <td style="white-space: nowrap;">
+                    {{ r.engage_by | format_date }}
+                    {% if engage_days is not none and engage_days <= 0 %}
+                    <span class="badge badge-urgent">ENGAGE NOW</span>
+                    {% elif engage_days is not none and engage_days <= 30 %}
+                    <span class="badge badge-engage">{{ engage_days }}d</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/renewals?vendor={{ r.vendor | urlencode }}&dept={{ filter_dept }}&relevance={{ filter_relevance }}&days={{ filter_days }}" class="vendor-link">{{ r.vendor | truncate(40) }}</a>
+                </td>
+                <td>
+                    <a href="/?q={{ r.department | urlencode }}">{{ r.department | truncate(35) }}</a>
+                </td>
+                <td title="{{ r.description }}">
+                    {% if r.product %}
+                        {% if r.product_source == 'comments' or r.product_source == 'vendor' %}
+                            {{ r.product }}
+                        {% elif r.product_source == 'so' %}
+                            {{ r.product }} <span style="color: #6b7280; font-size: 11px;">(SO)</span>
+                        {% elif r.product_source == 'reseller' %}
+                            {{ r.product }} <span style="color: #6b7280; font-size: 11px;">?</span>
+                        {% elif r.product_source == 'category' or r.product_source == 'fallback' %}
+                            <span style="color: #9ca3af; font-style: italic;">{{ r.product }}</span>
+                        {% else %}
+                            {{ r.product }}
+                        {% endif %}
+                    {% else %}
+                        <span style="color: #9ca3af; font-style: italic;">{{ r.description | truncate(30) }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">{{ r.last_contract_value | format_currency }}</td>
+                <td style="text-align: right; white-space: nowrap;">{{ r.total_historical_value | format_currency }}</td>
+                <td style="text-align: center;">{{ r.purchase_count }}</td>
+                <td style="white-space: nowrap;">
+                    {{ r.projected_renewal | format_date }}
+                    <span class="mono" style="font-size: 11px; color: #888; margin-left: 4px;">
+                        {% if r.days_until_renewal < 0 %}{{ (r.days_until_renewal * -1) }}d ago{% else %}{{ r.days_until_renewal }}d{% endif %}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge badge-{{ r.plur_relevance | lower }}">{{ r.plur_relevance }}</span>
+                </td>
+                <td>
+                    {% if r.reference_number %}
+                    <a href="https://search.open.canada.ca/contracts/?search_text=%22{{ r.reference_number | urlencode }}%22" target="_blank" class="btn btn-sm">Open Canada &#8599;</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not renewals %}
+            <tr><td colspan="10" style="text-align: center; padding: 24px; color: #888;">No renewals found matching your filters.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+{% set pp = '?dept=' + filter_dept + '&relevance=' + filter_relevance + '&days=' + filter_days|string + '&q=' + filter_q + '&sort=' + filter_sort + ('&vendor=' + filter_vendor if filter_vendor else '') %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="/renewals{{ pp }}&page={{ page - 1 }}">&laquo; Prev</a>
+    {% else %}
+    <span class="disabled">&laquo; Prev</span>
+    {% endif %}
+
+    <span>Page {{ page }} of {{ total_pages }} ({{ total_count }} results)</span>
+
+    {% if page < total_pages %}
+    <a href="/renewals{{ pp }}&page={{ page + 1 }}">Next &raquo;</a>
+    {% else %}
+    <span class="disabled">Next &raquo;</span>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if tender_renewals %}
+<div class="tender-section">
+    <h3>
+        Tender Intelligence
+        <span style="font-size: 12px; font-weight: 400; color: #888; margin-left: 8px;">
+            Projected from historical procurement - not confirmed contracts
+        </span>
+    </h3>
+    <p style="font-size: 12px; color: #888; margin-bottom: 10px;">
+        Departments that issued security product tenders in the past, with estimated renewal windows
+        based on typical 1yr / 3yr / 5yr contract cycles. Use as prospecting signals, not confirmed renewals.
+    </p>
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Department</th>
+                <th>Category</th>
+                <th>Last Tender</th>
+                <th>Tender Title</th>
+                <th style="text-align:center;"># Tenders</th>
+                <th>1yr Renewal</th>
+                <th>3yr Renewal</th>
+                <th>5yr Renewal</th>
+                <th>Confidence</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in tender_renewals %}
+            <tr>
+                <td>
+                    <a href="/?q={{ r.department | urlencode }}">{{ r.department | truncate(40) }}</a>
+                </td>
+                <td>
+                    <span class="category-tag category-intel" style="font-size: 11px; padding: 3px 8px;">
+                        {{ r.product_label }}
+                    </span>
+                </td>
+                <td style="white-space: nowrap; font-size: 12px;">{{ r.last_tender_date }}</td>
+                <td>
+                    <a href="{{ r.tender_url }}" target="_blank" title="{{ r.tender_title }}">
+                        {{ r.tender_title | truncate(55) }}
+                    </a>
+                    {% if r.tender_count > 1 %}
+                    <span style="color: #888; font-size: 11px; margin-left: 4px;">+{{ r.tender_count - 1 }} more</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:center;">{{ r.tender_count }}</td>
+                <td style="white-space: nowrap;">
+                    {{ r.projected_renewal_1yr }}
+                    {% if r.days_until_1yr < -120 %}
+                    <span class="days-past">(passed)</span>
+                    {% elif r.days_until_1yr < 0 %}
+                    <span class="days-past">({{ (r.days_until_1yr * -1) }}d ago)</span>
+                    {% elif r.days_until_1yr <= 180 %}
+                    <span class="days-soon">{{ r.days_until_1yr }}d</span>
+                    {% else %}
+                    <span class="days-future">{{ r.days_until_1yr }}d</span>
+                    {% endif %}
+                </td>
+                <td style="white-space: nowrap;">
+                    {{ r.projected_renewal_3yr }}
+                    {% if r.days_until_3yr < -120 %}
+                    <span class="days-past">(passed)</span>
+                    {% elif r.days_until_3yr < 0 %}
+                    <span class="days-past">({{ (r.days_until_3yr * -1) }}d ago)</span>
+                    {% elif r.days_until_3yr <= 180 %}
+                    <span class="days-soon">{{ r.days_until_3yr }}d</span>
+                    {% else %}
+                    <span class="days-future">{{ r.days_until_3yr }}d</span>
+                    {% endif %}
+                </td>
+                <td style="white-space: nowrap;">
+                    {{ r.projected_renewal_5yr }}
+                    {% if r.days_until_5yr < -120 %}
+                    <span class="days-past">(passed)</span>
+                    {% elif r.days_until_5yr < 0 %}
+                    <span class="days-past">({{ (r.days_until_5yr * -1) }}d ago)</span>
+                    {% elif r.days_until_5yr <= 180 %}
+                    <span class="days-soon">{{ r.days_until_5yr }}d</span>
+                    {% else %}
+                    <span class="days-future">{{ r.days_until_5yr }}d</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="tender-badge tender-badge-{{ 'high' if r.confidence == 'HIGH' else 'medium' }}">
+                        {{ r.confidence }}
+                    </span>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

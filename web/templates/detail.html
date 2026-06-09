@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}{{ notice.title }} - PLUR RFP Tracker{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:12px;">
+    <a href="/" style="color:#2563eb; text-decoration:none; font-size:14px;">&larr; Back to list</a>
+</div>
+
+<div class="detail-card">
+    <div class="detail-header">
+        <span class="badge badge-t{{ classification.get('tier', 3) }}">T{{ classification.get('tier', 3) }}</span>
+        <h1>{{ notice.title }}</h1>
+    </div>
+
+    <!-- Core info -->
+    <div class="detail-grid">
+        <div class="detail-field">
+            <span class="detail-label">Buyer</span>
+            <span class="detail-value"><a href="/?q={{ notice.buyer | urlencode }}">{{ notice.buyer or '-' }}</a></span>
+        </div>
+        <div class="detail-field">
+            <span class="detail-label">Source</span>
+            <span class="detail-value mono">{{ notice.source }}</span>
+        </div>
+        <div class="detail-field">
+            <span class="detail-label">Solicitation #</span>
+            <span class="detail-value mono">{{ notice.solicitation_number or '-' }}</span>
+        </div>
+        <div class="detail-field">
+            <span class="detail-label">Notice Type</span>
+            <span class="detail-value">{{ notice.notice_type or '-' }}</span>
+        </div>
+        <div class="detail-field">
+            <span class="detail-label">Closing Date</span>
+            <span class="detail-value">{{ notice.closing_date | format_date }}
+                {% set closing_days = notice.closing_date | days_until %}
+                {% if closing_days is not none and closing_days < 0 %}
+                <span class="badge-closed">CLOSED</span>
+                {% elif closing_days is not none and closing_days <= 7 %}
+                <span class="closing-soon">({{ closing_days }}d left)</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-field">
+            <span class="detail-label">First Seen</span>
+            <span class="detail-value">{{ notice.fetch_timestamp | format_date }}</span>
+        </div>
+    </div>
+
+    {% if source_url %}
+    <div style="margin: 16px 0;">
+        <a href="{{ source_url }}" target="_blank" class="btn">View on Source &#8599;</a>
+    </div>
+    {% endif %}
+
+    <!-- Description -->
+    {% if notice.description %}
+    <div class="detail-section">
+        <h2>Description</h2>
+        <div class="detail-description">{{ notice.description }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Classification -->
+    <div class="detail-section">
+        <h2>Classification</h2>
+        <div class="detail-grid">
+            <div class="detail-field">
+                <span class="detail-label">Tier</span>
+                <span class="detail-value">{{ classification.get('tier', '-') }}</span>
+            </div>
+            <div class="detail-field">
+                <span class="detail-label">Confidence</span>
+                <span class="detail-value">{{ classification.get('confidence', '-') }}</span>
+            </div>
+            <div class="detail-field">
+                <span class="detail-label">Product Type</span>
+                <span class="detail-value">{{ classification.get('product_type', '-') }}</span>
+            </div>
+        </div>
+        {% if classification.get('matched_keywords') %}
+        <div class="detail-field" style="margin-top:8px;">
+            <span class="detail-label">Matched Keywords</span>
+            <div style="margin-top:4px;">
+                {% for kw in classification.matched_keywords %}
+                <span class="tag">{{ kw }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if vendor_flags %}
+        <div class="detail-field" style="margin-top:8px;">
+            <span class="detail-label">Vendor Flags</span>
+            <div style="margin-top:4px;">
+                {% for vf in vendor_flags %}
+                <span class="vendor-flag">VENDOR: {{ vf }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Enrichment -->
+    {% if enrichment %}
+    <div class="detail-section">
+        <h2>Enrichment / Intel</h2>
+
+        {% if enrichment.get('incumbent') %}
+        <div class="detail-subsection">
+            <h3>Incumbent</h3>
+            <div class="detail-grid">
+                <div class="detail-field">
+                    <span class="detail-label">Vendor</span>
+                    <span class="detail-value">{{ enrichment.incumbent.vendor or '-' }}</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Contract Value</span>
+                    <span class="detail-value">${{ '{:,.0f}'.format(enrichment.incumbent.value) if enrichment.incumbent.value else '-' }}</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Date</span>
+                    <span class="detail-value">{{ enrichment.incumbent.date or '-' }}</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Sole Source</span>
+                    <span class="detail-value">{{ 'Yes' if enrichment.incumbent.get('sole_source') else 'No' }}</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label"># Bidders</span>
+                    <span class="detail-value">{{ enrichment.incumbent.get('num_bidders', '-') }}</span>
+                </div>
+            </div>
+            {% if enrichment.incumbent.get('reference_number') %}
+            <div style="margin-top: 10px;">
+                <a href="https://search.open.canada.ca/contracts/?search_text=%22{{ enrichment.incumbent.reference_number | urlencode }}%22"
+                   target="_blank" class="btn btn-sm">View Contract on Open Canada &#8599;</a>
+            </div>
+            {% elif enrichment.incumbent.get('vendor') %}
+            <div style="margin-top: 10px;">
+                <a href="https://search.open.canada.ca/contracts/?search_text={{ enrichment.incumbent.vendor | urlencode }}"
+                   target="_blank" class="btn btn-sm">Search Vendor on Open Canada &#8599;</a>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if enrichment.get('standing_offers') %}
+        <div class="detail-subsection">
+            <h3>Standing Offers</h3>
+            <div>
+                {% for so in enrichment.standing_offers %}
+                <span class="tag tag-sa">{{ so }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if enrichment.get('lobbying') %}
+        <div class="detail-subsection">
+            <h3>Lobbying Signals ({{ enrichment.lobbying | length }})</h3>
+            <table class="lobby-table">
+                <thead>
+                    <tr>
+                        <th>Firm</th>
+                        <th>Subject Matter</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in enrichment.lobbying %}
+                    <tr>
+                        <td>{{ l.firm }}</td>
+                        <td>{{ l.subject }}</td>
+                        <td>{{ l.date or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if not enrichment.get('incumbent') and not enrichment.get('standing_offers') and not enrichment.get('lobbying') %}
+        <p style="color:#888;">No enrichment data available.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if enrichment and (enrichment.get('similar_awards') or enrichment.get('competitive_landscape', {}).get('top_competitors')) %}
+    <div class="detail-section">
+        <h2>Competitive Intelligence</h2>
+
+        {% if enrichment.get('competitive_landscape', {}).get('top_competitors') %}
+        <div class="detail-subsection">
+            <h3>Competitive Landscape</h3>
+            <div class="detail-grid">
+                <div class="detail-field">
+                    <span class="detail-label">Similar Awards</span>
+                    <span class="detail-value">{{ enrichment.competitive_landscape.get('num_similar_awards', 0) }}</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Average Award Value</span>
+                    <span class="detail-value">
+                        ${{ '{:,.0f}'.format(enrichment.competitive_landscape.get('avg_award_value', 0)) if enrichment.competitive_landscape.get('avg_award_value') else '-' }}
+                    </span>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                {% for competitor in enrichment.competitive_landscape.top_competitors %}
+                <span class="tag tag-intel">
+                    {{ competitor.vendor }}: {{ competitor.wins }} win{{ '' if competitor.wins == 1 else 's' }} / ${{ '{:,.0f}'.format(competitor.total_value) }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if enrichment.get('similar_awards') %}
+        <div class="detail-subsection">
+            <h3>Similar Past Awards</h3>
+            <table class="lobby-table">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Department</th>
+                        <th>Value</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Open Canada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for award in enrichment.similar_awards %}
+                    <tr>
+                        <td>{{ award.vendor or '-' }}</td>
+                        <td>{{ award.department or '-' }}</td>
+                        <td>${{ '{:,.0f}'.format(award.value) if award.value else '-' }}</td>
+                        <td>{{ award.date or '-' }}</td>
+                        <td title="{{ award.description }}">{{ award.description | truncate(120) }}</td>
+                        <td>
+                            {% if award.reference_number %}
+                            <a href="https://search.open.canada.ca/contracts/?search_text=%22{{ award.reference_number | urlencode }}%22"
+                               target="_blank" class="btn btn-sm">Open Canada &#8599;</a>
+                            {% elif award.vendor %}
+                            <a href="https://search.open.canada.ca/contracts/?search_text={{ award.vendor | urlencode }}"
+                               target="_blank" class="btn btn-sm">Search Vendor &#8599;</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .detail-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 24px; }
+    .detail-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+    .detail-header h1 { font-size: 20px; font-weight: 600; color: #1a1a2e; line-height: 1.3; }
+    .detail-section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; }
+    .detail-section h2 { font-size: 15px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .detail-subsection { margin-top: 16px; padding: 12px 16px; background: #f8f8fa; border-radius: 4px; }
+    .detail-subsection h3 { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 8px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .detail-field { display: flex; flex-direction: column; }
+    .detail-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 500; }
+    .detail-value { font-size: 14px; color: #333; margin-top: 2px; }
+    .detail-description { font-size: 14px; line-height: 1.6; color: #444; white-space: pre-wrap; max-height: 400px; overflow-y: auto; padding: 12px; background: #f8f8fa; border-radius: 4px; }
+    .lobby-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    .lobby-table th { text-align: left; padding: 6px 12px; font-size: 11px; color: #888; text-transform: uppercase; border-bottom: 1px solid #ddd; }
+    .lobby-table td { padding: 6px 12px; border-bottom: 1px solid #eee; }
+    .lobby-table tr:hover { background: #f0f4ff; }
+</style>
+{% endblock %}

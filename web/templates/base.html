@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PLUR RFP Tracker{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #333; }
+
+        /* Nav */
+        .nav { background: #1a1a2e; padding: 0 24px; display: flex; align-items: center; height: 52px; }
+        .nav-brand { color: #fff; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; margin-right: 32px; }
+        .nav-links { display: flex; gap: 4px; }
+        .nav-links a { color: #a0a0c0; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; transition: background 0.15s, color 0.15s; }
+        .nav-links a:hover, .nav-links a.active { color: #fff; background: rgba(255,255,255,0.1); }
+
+        /* Layout */
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px 24px; }
+
+        /* Stats bar */
+        .stats-bar { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px 20px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 14px; color: #555; }
+        .stats-bar .stat { display: flex; align-items: center; gap: 6px; }
+        .stats-bar .stat-value { font-weight: 600; color: #1a1a2e; }
+
+        /* Filter bar */
+        .filter-bar { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px 20px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+        .filter-bar label { font-size: 13px; color: #666; font-weight: 500; }
+        .filter-bar input[type="text"], .filter-bar select {
+            padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+        }
+        .filter-bar input[type="text"] { width: 200px; }
+        .filter-group { display: flex; align-items: center; gap: 6px; }
+        .filter-group input[type="checkbox"] { margin: 0; }
+        .btn { padding: 6px 14px; background: #1a1a2e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .btn:hover { background: #2a2a4e; text-decoration: none; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-clear { background: #888; }
+        .btn-clear:hover { background: #666; }
+
+        /* Table wrapper for mobile scroll */
+        .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead th { background: #f8f8fa; border-bottom: 2px solid #e0e0e0; padding: 10px 12px; text-align: left; font-weight: 600; color: #555; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+        tbody tr { border-bottom: 1px solid #eee; }
+        tbody tr:nth-child(even) { background: #fafafa; }
+        tbody tr:hover { background: #f0f4ff; }
+        td { padding: 8px 12px; vertical-align: top; }
+        td a { color: #2563eb; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+
+        /* Tier badges */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px; }
+        .badge-t1 { background: #dbeafe; color: #1e40af; }
+        .badge-t2 { background: #fef3c7; color: #92400e; }
+        .badge-t3 { background: #e5e7eb; color: #4b5563; }
+
+        /* Status badges */
+        .badge-success { background: #dbeafe; color: #1e40af; }
+        .badge-error { background: #fef3c7; color: #92400e; }
+        .badge-running { background: #e5e7eb; color: #4b5563; }
+        .badge-new { background: #dcfce7; color: #166534; font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 700; letter-spacing: 0.3px; margin-left: 4px; }
+        tbody tr.row-new { background: #f0fdf4; }
+        tbody tr.row-new:nth-child(even) { background: #ecfce5; }
+
+        /* Keyword tags */
+        .tag { display: inline-block; padding: 1px 6px; background: #f0f0f5; border: 1px solid #ddd; border-radius: 3px; font-size: 11px; color: #555; margin: 1px 2px; }
+
+        /* Vendor flag */
+        .vendor-flag { display: inline-block; padding: 2px 8px; background: #fef3c7; color: #92400e; border-radius: 3px; font-size: 11px; font-weight: 600; }
+        .tag-intel { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; font-weight: 600; }
+        .tag-sa { background: #dcfce7; color: #166534; border-color: #bbf7d0; font-weight: 600; }
+        .tag-lobby { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .intel-cell { min-width: 120px; }
+        .sort-link { color: #666; text-decoration: none; cursor: pointer; white-space: nowrap; }
+        .sort-link:hover { color: #2563eb; }
+        .sort-link.active { color: #2563eb; font-weight: 600; }
+
+        /* Closing soon / closed */
+        .closing-soon { color: #b45309; font-weight: 600; }
+        .badge-closed { background: #e5e7eb; color: #6b7280; font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+
+        /* Monospace */
+        .mono { font-family: "SF Mono", "Fira Code", "Consolas", monospace; font-size: 12px; color: #666; }
+
+        /* Pagination */
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; padding: 16px; font-size: 13px; }
+        .pagination a, .pagination span { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #333; }
+        .pagination a:hover { background: #f0f4ff; }
+        .pagination .current { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+        .pagination .disabled { color: #ccc; pointer-events: none; }
+
+        /* Summary cards for health page */
+        .summary-cards { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+        .summary-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 16px 20px; flex: 1; min-width: 160px; }
+        .summary-card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-card .value { font-size: 24px; font-weight: 700; color: #1a1a2e; margin-top: 4px; }
+
+        /* External link icon */
+        .ext-link { color: #888; font-size: 14px; text-decoration: none; margin-left: 4px; }
+        .ext-link:hover { color: #2563eb; }
+
+        /* Truncated title */
+        .title-cell { max-width: 400px; }
+        .title-text { display: inline; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .filter-bar { flex-direction: column; align-items: stretch; }
+            .stats-bar { flex-direction: column; gap: 8px; }
+        }
+
+        /* htmx indicator */
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-block; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: #1a1a2e; border-radius: 50%; animation: spin 0.6s linear infinite; margin-left: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <span class="nav-brand">PLUR RFP Tracker</span>
+        <div class="nav-links">
+            <a href="/" class="{% if active_page == 'opportunities' %}active{% endif %}">Open</a>
+            <a href="/closed" class="{% if active_page == 'closed' %}active{% endif %}">Closed</a>
+            <a href="/renewals" class="{% if active_page == 'renewals' %}active{% endif %}">Renewals</a>
+            <a href="/health" class="{% if active_page == 'health' %}active{% endif %}">Health</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

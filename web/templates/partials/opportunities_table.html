@@ -1,0 +1,112 @@
+{% set base_url = '/closed' if active_page == 'closed' else '/' %}
+<div style="font-size:13px; color:#666; margin-bottom:8px;">Showing <strong>{{ total }}</strong> result{{ 's' if total != 1 }}</div>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th><a class="sort-link{% if filter_sort == 'tier' %} active{% endif %}" href="{{ base_url }}?sort=tier{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-get="{{ base_url }}?sort=tier{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-target="#results" hx-push-url="true">Tier</a></th>
+                <th><a class="sort-link{% if filter_sort == 'title' %} active{% endif %}" href="{{ base_url }}?sort=title{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-get="{{ base_url }}?sort=title{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-target="#results" hx-push-url="true">Title</a></th>
+                <th><a class="sort-link{% if filter_sort == 'buyer' %} active{% endif %}" href="{{ base_url }}?sort=buyer{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-get="{{ base_url }}?sort=buyer{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-target="#results" hx-push-url="true">Buyer</a></th>
+                <th>Source</th>
+                <th><a class="sort-link{% if filter_sort == 'closing_soon' or filter_sort == 'closing_last' %} active{% endif %}" href="{{ base_url }}?sort={% if filter_sort == 'closing_soon' %}closing_last{% else %}closing_soon{% endif %}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-get="{{ base_url }}?sort={% if filter_sort == 'closing_soon' %}closing_last{% else %}closing_soon{% endif %}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-target="#results" hx-push-url="true">Closes {% if filter_sort == 'closing_soon' %}&#9650;{% elif filter_sort == 'closing_last' %}&#9660;{% endif %}</a></th>
+                <th><a class="sort-link{% if filter_sort == 'newest' or filter_sort == 'oldest' %} active{% endif %}" href="{{ base_url }}?sort={% if filter_sort == 'newest' %}oldest{% else %}newest{% endif %}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-get="{{ base_url }}?sort={% if filter_sort == 'newest' %}oldest{% else %}newest{% endif %}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}" hx-target="#results" hx-push-url="true">First Seen {% if filter_sort == 'newest' %}&#9660;{% elif filter_sort == 'oldest' %}&#9650;{% endif %}</a></th>
+                <th>Keywords</th>
+                <th>Vendor</th>
+                <th>Intel</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for notice in notices %}
+            {% set cls = notice.classification_json | parse_json({}) %}
+            {% set vflags = notice.vendor_flags | parse_json([]) %}
+            {% set tier = cls.get('tier', 3) %}
+            {% set keywords = cls.get('matched_keywords', []) %}
+            {% set product = cls.get('product_type', '') %}
+            {% set closing_days = notice.closing_date | days_until %}
+            {% set enrichment = notice.enrichment_json | parse_json({}) if notice.enrichment_json is defined and notice.enrichment_json else {} %}
+            {% if notice.url %}
+                {% set opp_url = notice.url %}
+            {% elif notice.source == 'canadabuys' and notice.source_id %}
+                {% set opp_url = 'https://canadabuys.canada.ca/en/tender-opportunities/tender-notice/' + notice.source_id %}
+            {% elif notice.source.startswith('bonfire') and notice.source_id %}
+                {% set opp_url = 'https://' + notice.source.split(':')[1] + '.bonfirehub.ca/opportunities/' + notice.source_id %}
+            {% else %}
+                {% set opp_url = '' %}
+            {% endif %}
+            {% set row_is_new = notice.fetch_timestamp | is_new %}
+            <tr{% if row_is_new %} class="row-new"{% endif %}>
+                <td>
+                    <span class="badge badge-t{{ tier }}">T{{ tier }}</span>{% if product %} <span class="tag" style="font-size:10px;">{% if product | upper == 'SERVICES' %}SVC{% elif product | upper == 'GOODS' or product | upper == 'PRODUCT' %}PRD{% else %}{{ product | upper | truncate(4) }}{% endif %}</span>{% endif %}
+                </td>
+                <td class="title-cell">
+                    <a href="/opportunity/{{ notice.id }}" title="{{ notice.title }}">{{ notice.title | truncate(80) }}</a>{% if row_is_new %} <span class="badge-new">NEW</span>{% endif %}
+                    {% if opp_url %}
+                    <a href="{{ opp_url }}" target="_blank" class="ext-link" title="Open source URL">&#8599;</a>
+                    {% endif %}
+                    {% if notice.solicitation_number %}
+                    <br><span class="mono">{{ notice.solicitation_number }}</span>
+                    {% endif %}
+                </td>
+                <td><a href="{{ base_url }}?q={{ notice.buyer | urlencode }}" title="{{ notice.buyer }}">{{ notice.buyer | truncate(40) }}</a></td>
+                <td><span class="mono">{{ notice.source }}</span></td>
+                <td{% if closing_days is not none and closing_days >= 0 and closing_days <= 7 %} class="closing-soon"{% endif %}>
+                    {{ notice.closing_date | format_date }}
+                    {% if closing_days is not none and closing_days < 0 %}
+                    <br><span class="badge-closed">CLOSED</span>
+                    {% elif closing_days is not none and closing_days <= 7 %}
+                    <br><small>({{ closing_days }}d left)</small>
+                    {% endif %}
+                </td>
+                <td>{{ notice.fetch_timestamp | format_date }}</td>
+                <td>
+                    {% for kw in keywords %}
+                    <span class="tag">{{ kw }}</span>
+                    {% endfor %}
+                </td>
+                <td>
+                    {% for vf in vflags %}
+                    <span class="vendor-flag">VENDOR: {{ vf }}</span>
+                    {% endfor %}
+                </td>
+                <td class="intel-cell">
+                    {% if enrichment.get('incumbent') %}
+                    <span class="tag tag-intel" title="Incumbent: {{ enrichment.incumbent.vendor }} (${{ '{:,.0f}'.format(enrichment.incumbent.value) }}, {{ enrichment.incumbent.date }})">{{ enrichment.incumbent.vendor | truncate(20) }} ${{ '{:,.0f}'.format(enrichment.incumbent.value) }}</span>
+                    {% endif %}
+                    {% if enrichment.get('standing_offers') %}
+                    <span class="tag tag-sa">{{ enrichment.standing_offers | join(', ') }}</span>
+                    {% endif %}
+                    {% if enrichment.get('lobbying') %}
+                    <span class="tag tag-lobby" title="{% for l in enrichment.lobbying %}{{ l.firm }} ({{ l.subject }}){% if not loop.last %}, {% endif %}{% endfor %}">{{ enrichment.lobbying | length }} lobby signal{{ 's' if enrichment.lobbying | length > 1 }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not notices %}
+            <tr><td colspan="9" style="text-align:center; padding:24px; color:#888;">No opportunities match your filters.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}
+    <a href="{{ base_url }}?page={{ page - 1 }}{% if filter_tier %}&{{ filter_tier | join('&tier=', attribute=None) }}{% endif %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}"
+       hx-get="{{ base_url }}?page={{ page - 1 }}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}"
+       hx-target="#results" hx-push-url="true">&laquo; Prev</a>
+    {% else %}
+    <span class="disabled">&laquo; Prev</span>
+    {% endif %}
+
+    <span>Page {{ page }} of {{ total_pages }} ({{ total }} results)</span>
+
+    {% if page < total_pages %}
+    <a href="{{ base_url }}?page={{ page + 1 }}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}"
+       hx-get="{{ base_url }}?page={{ page + 1 }}{% for t in filter_tier %}&tier={{ t }}{% endfor %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% if filter_q %}&q={{ filter_q }}{% endif %}"
+       hx-target="#results" hx-push-url="true">Next &raquo;</a>
+    {% else %}
+    <span class="disabled">Next &raquo;</span>
+    {% endif %}
+</div>
+{% endif %}

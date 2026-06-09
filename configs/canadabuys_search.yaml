@@ -1,0 +1,117 @@
+# CanadaBuys Website Search - SourceConfig
+# BLOCKED: Requires search crawler architecture (multi-URL, pagination, deduplication)
+# Current HTMLExtractor is designed for single static page extraction
+
+source_id: canadabuys_search
+name: CanadaBuys Website Search
+type: html
+url: https://canadabuys.canada.ca/en/tender-opportunities?words=cybersecurity&status%5B87%5D=87&items_per_page=200
+enabled: false  # BLOCKED: Requires multi-URL search crawler, not single-page extractor
+interval_hours: 12
+
+# Authentication
+auth:
+  type: none
+
+# HTML extraction configuration (PARTIAL - only works for single search term, single page)
+extraction:
+  # Table container selector
+  container_selector: ".view-search-opportunities table tbody"
+
+  # Row selector within container
+  row_selector: "tr"
+
+  # No header rows to skip (tbody only contains data rows)
+  skip_header_rows: 0
+
+  # Field mappings using positional cell extraction
+  # Table structure: [Title+Link, Category, ?, ClosingDate, Organization]
+  columns:
+    source_id: "cell[0].a.href"     # Extract ID from href: /tender-notice/{id}
+    title: "cell[0].text"           # Title text
+    notice_type: "cell[1].text"     # Category column
+    closing_date: "cell[3].text"    # Closing date (YYYY/MM/DD format)
+    buyer: "cell[4].text"           # Organization
+    url: "cell[0].a.href"           # Link to tender page
+
+  # Base URL for converting relative links to absolute
+  url_base: "https://canadabuys.canada.ca"
+
+# Validation rules
+validation:
+  required_fields:
+    - title
+    - source_id
+    - buyer
+  date_format: null  # Flexible (source uses YYYY/MM/DD, needs normalization to YYYY-MM-DD)
+  min_title_length: 10
+  max_title_length: 500
+  min_completeness_rate: 0.6
+
+# Health monitoring thresholds
+health:
+  min_records_expected: 10
+  max_days_silent: 2
+  error_rate_threshold: 0.2
+  validation_fail_threshold: 0.3
+
+# Metadata
+version: 1
+status: testing  # BLOCKED - see missing features below
+
+# ==============================================================================
+# ARCHITECTURAL BLOCKER: Missing Search Crawler Features
+# ==============================================================================
+#
+# This config CAN extract a single page of a single search term (e.g., first 200
+# "cybersecurity" results), but it CANNOT replicate the full legacy scraper behavior.
+#
+# Legacy scraper (scrapers/canadabuys_search.py) implements a SEARCH CRAWLER that:
+#   1. Iterates through 20+ search terms (cybersecurity, IT security, cloud services, etc.)
+#   2. Follows pagination (up to 10 pages per term, checking .pager for next page)
+#   3. Deduplicates across all pages/terms (tracks seen_ids in set)
+#   4. Runs two passes: Open tenders (status[87]=87) then Closed (status[1920]=1920, status[1922]=1922)
+#   5. Builds dynamic URLs with query parameters (?words={term}&status[{code}]={code}&page=...)
+#
+# Current HTMLExtractor supports:
+#   ✅ Single static URL fetch
+#   ✅ Table/row extraction with CSS selectors
+#   ✅ Cell-based field mapping (cell[N].text, cell[N].a.href)
+#   ✅ URL base for relative links
+#
+# Current HTMLExtractor DOES NOT support:
+#   ❌ Multi-URL iteration (search term list)
+#   ❌ Pagination detection and following (.pager a element → next page URL)
+#   ❌ Cross-page deduplication (track seen_ids across fetches)
+#   ❌ Dynamic URL building (template with {search_term}, {page}, {status} placeholders)
+#   ❌ Multi-pass extraction (different status filters)
+#   ❌ Per-term retry/error handling
+#
+# IMPACT:
+#   - This config only extracts ~200 "cybersecurity" results (first page)
+#   - Misses ~95% of results (other search terms + pagination)
+#   - Cannot search closed tenders (awarded/expired historical intel)
+#   - Will create duplicates if run multiple times (no dedup across runs)
+#
+# RECOMMENDATION:
+#   Phase 2 should add "search_crawler" extractor type with:
+#     - url_template: Base URL with {search_term}, {page}, {status} placeholders
+#     - search_terms: [list of keywords]
+#     - pagination:
+#         next_page_selector: ".pager a"  # CSS selector for "next page" link
+#         max_pages_per_term: 10
+#         url_pattern: "&page=%2C{page}%2C0%2C0"
+#     - deduplication:
+#         field: source_id  # Track across all URLs
+#         scope: run  # Within single run
+#     - multi_pass:
+#         - name: open
+#           status_params: { "87": "87" }
+#         - name: closed
+#           status_params: { "1920": "1920", "1922": "1922" }
+#
+# CURRENT STATE:
+#   - Legacy scrapers/canadabuys_search.py remains the ONLY functional implementation
+#   - This v2 config exists for completeness (5/5 sources covered) but is NOT production-ready
+#   - enabled: false prevents accidental partial runs
+#   - Use legacy scraper until Phase 2 implements search_crawler architecture

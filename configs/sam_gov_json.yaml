@@ -1,0 +1,68 @@
+# SAM.gov Opportunities API - SourceConfig
+# This config provides JSON API extraction for federal procurement opportunities
+# Minimal implementation: single NAICS code, 30-day lookback
+
+source_id: sam_gov_json
+name: SAM.gov Federal Opportunities
+type: json_api
+url: https://api.sam.gov/opportunities/v2/search
+enabled: true
+interval_hours: 12
+
+# API key authentication
+auth:
+  type: api_key
+  key_name: SAM_GOV_API_KEY  # Environment variable name
+
+# JSON API-specific extraction configuration
+extraction:
+  # Field mappings: {target_field: json_path}
+  # Use dot notation for nested fields
+  columns:
+    source_id: noticeId
+    title: title
+    description: description
+    buyer: organizationId
+    closing_date: responseDeadLine
+    url: uiLink
+    notice_type: type
+
+  # Path to records array in JSON response
+  response_path: opportunitiesData
+
+  # Static query parameters
+  query_params:
+    # Date range: 30 days lookback (YYYY-MM-DD format)
+    postedFrom: "04/16/2026"
+    postedTo: "05/16/2026"
+
+    # NAICS code: 541512 - Computer Systems Design Services
+    # (Common code for cybersecurity/IT opportunities)
+    ncode: "541512"
+
+    # Opportunity types: o=solicitation, p=presolicitation, k=combined
+    ptype: "o,p,k"
+
+    # Max records per request
+    limit: "1000"
+
+# Validation rules
+validation:
+  required_fields:
+    - title
+    - source_id
+  date_format: null  # SAM.gov uses ISO 8601 format
+  min_title_length: 5
+  max_title_length: 500
+  min_completeness_rate: 0.6  # Lower than CSV (API responses may have sparse fields)
+
+# Health monitoring thresholds
+health:
+  min_records_expected: 1  # Federal opportunities are less frequent
+  max_days_silent: 7
+  error_rate_threshold: 0.2
+  validation_fail_threshold: 0.5
+
+# Metadata
+version: 1
+status: testing  # BLOCKED: Requires SAM_GOV_API_KEY environment variable (free registration at sam.gov)

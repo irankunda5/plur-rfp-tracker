@@ -1,0 +1,55 @@
+# Bonfire UBC Portal - SourceConfig
+# Minimal implementation for Source #2B validation: single portal, no auth
+# This config validates JSONExtractor for dict-based JSON responses (vs SAM.gov's array-based)
+
+source_id: bonfire_json
+name: Bonfire UBC Portal
+type: json_api
+url: https://ubc.bonfirehub.ca/PublicPortal/getOpenPublicOpportunitiesSectionData
+enabled: true
+interval_hours: 24
+
+# No authentication required
+auth:
+  type: none
+
+# JSON API-specific extraction configuration
+extraction:
+  # Field mappings: {target_field: json_path}
+  # Bonfire uses simple field names at the record level
+  columns:
+    source_id: ProjectID
+    title: ProjectName
+    closing_date: DateClose
+    # Bonfire-specific: no description field (title-only classification)
+    # buyer will be set to portal name "ubc" in post-processing
+    # url will be portal-level URL, not project-specific
+
+  # Path to records in JSON response
+  # Bonfire returns: {success: bool, payload: {projects: {id1: {...}, id2: {...}}}}
+  # Note: projects is a DICT (not array), JSONExtractor now handles dict.values() conversion
+  response_path: payload.projects
+
+  # No query parameters needed (GET request returns all open projects)
+  query_params: {}
+
+# Validation rules
+validation:
+  required_fields:
+    - title
+    - source_id
+  date_format: null  # Bonfire may use various formats, skip strict validation
+  min_title_length: 5
+  max_title_length: 500
+  min_completeness_rate: 0.5  # Lower threshold: no description field, sparse data
+
+# Health monitoring thresholds
+health:
+  min_records_expected: 1  # UBC typically has at least 1 open project
+  max_days_silent: 3
+  error_rate_threshold: 0.2
+  validation_fail_threshold: 0.5
+
+# Metadata
+version: 1
+status: production  # 72h validation: 8 runs, 8 successful, 0 failed

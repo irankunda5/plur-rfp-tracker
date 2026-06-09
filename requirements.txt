@@ -1,0 +1,22 @@
+# PLUR RFP Tracker - Python dependencies
+# Generated from codebase import analysis, 2026-03-21
+
+# Web framework + server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+jinja2>=3.1.0
+
+# HTTP client (scrapers)
+httpx>=0.27.0
+
+# HTML parsing (CanadaBuys search, SaskTenders)
+beautifulsoup4>=4.12.0
+
+# Fuzzy string matching (cross-source deduplication)
+rapidfuzz>=3.6.0
+
+# CSV parsing (v2 extractors)
+pandas>=2.0.0
+
+# Testing
+pytest>=8.0.0

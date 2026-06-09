@@ -1,0 +1,35 @@
+services:
+  rfp-tracker:
+    build: .
+    container_name: rfp-tracker
+    ports:
+      - "8081:8081"
+    volumes:
+      - rfp-data:/app/data
+      - rfp-logs:/app/logs
+      - /etc/ssl/localhost.pem:/ssl.crt
+      - /etc/ssl/private/localhost-key.pem:/ssl.key
+    env_file:
+      - .env
+    environment:
+      - SSL_KEY_PATH=/ssl.key
+      - SSL_CERT_PATH=/ssl.crt
+    restart: unless-stopped
+
+  # One-shot scraper for manual runs: docker compose run --rm scraper
+  scraper:
+    build: .
+    container_name: rfp-scraper
+    volumes:
+      - rfp-data:/app/data
+      - rfp-logs:/app/logs
+    env_file:
+      - .env
+    profiles: ["manual"]
+    command: python run.py --once
+
+volumes:
+  rfp-data:
+    driver: local
+  rfp-logs:
+    driver: local

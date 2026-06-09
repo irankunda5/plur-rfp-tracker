@@ -1,0 +1,479 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RFP Tracker - API Gateway Infrastructure'
+
+Parameters:
+  EC2InstancePrivateIP:
+    Type: String
+    Description: Private IP of EC2 instance running FastAPI
+    Default: 10.0.1.100
+
+  DomainName:
+    Type: String
+    Description: Custom domain for API (e.g., api.rfp.plurilock.com)
+    Default: ""
+
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN for custom domain (leave empty if not using custom domain)
+    Default: ""
+
+  Environment:
+    Type: String
+    Description: Environment name
+    Default: prod
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
+
+Resources:
+  # ============================================================================
+  # API Gateway REST API
+  # ============================================================================
+  RFPTrackerAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'rfp-tracker-api-${Environment}'
+      Description: RFP Tracker Public API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Policy:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 'execute-api:Invoke'
+            Resource: '*'
+
+  # ============================================================================
+  # API Resources
+  # ============================================================================
+
+  # /v1
+  V1Resource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RFPTrackerAPI.RootResourceId
+      PathPart: v1
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/opportunities
+  OpportunitiesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref V1Resource
+      PathPart: opportunities
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/opportunities/{id}
+  OpportunityDetailResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref OpportunitiesResource
+      PathPart: '{id}'
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/opportunities/recent
+  OpportunitiesRecentResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref OpportunitiesResource
+      PathPart: recent
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/export
+  ExportResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref V1Resource
+      PathPart: export
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/export/opportunities
+  ExportOpportunitiesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref ExportResource
+      PathPart: opportunities
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/health
+  HealthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref V1Resource
+      PathPart: health
+      RestApiId: !Ref RFPTrackerAPI
+
+  # /v1/stats
+  StatsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref V1Resource
+      PathPart: stats
+      RestApiId: !Ref RFPTrackerAPI
+
+  # ============================================================================
+  # Methods (GET /v1/opportunities)
+  # ============================================================================
+
+  OpportunitiesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      ResourceId: !Ref OpportunitiesResource
+      HttpMethod: GET
+      AuthorizationType: API_KEY
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.tier: false
+        method.request.querystring.source: false
+        method.request.querystring.q: false
+        method.request.querystring.page: false
+        method.request.querystring.per_page: false
+        method.request.querystring.closing_after: false
+        method.request.querystring.closing_before: false
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub 'http://${EC2InstancePrivateIP}:8081/api/opportunities'
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestParameters:
+          integration.request.querystring.tier: method.request.querystring.tier
+          integration.request.querystring.source: method.request.querystring.source
+          integration.request.querystring.q: method.request.querystring.q
+          integration.request.querystring.page: method.request.querystring.page
+          integration.request.querystring.per_page: method.request.querystring.per_page
+          integration.request.querystring.closing_after: method.request.querystring.closing_after
+          integration.request.querystring.closing_before: method.request.querystring.closing_before
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: Empty
+        - StatusCode: 400
+        - StatusCode: 429
+        - StatusCode: 500
+
+  # GET /v1/opportunities/{id}
+  OpportunityDetailGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      ResourceId: !Ref OpportunityDetailResource
+      HttpMethod: GET
+      AuthorizationType: API_KEY
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub 'http://${EC2InstancePrivateIP}:8081/api/opportunities/{id}'
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+        IntegrationResponses:
+          - StatusCode: 200
+          - StatusCode: 404
+      MethodResponses:
+        - StatusCode: 200
+        - StatusCode: 404
+        - StatusCode: 429
+
+  # GET /v1/opportunities/recent
+  OpportunitiesRecentGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      ResourceId: !Ref OpportunitiesRecentResource
+      HttpMethod: GET
+      AuthorizationType: API_KEY
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.hours: false
+        method.request.querystring.tier: false
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub 'http://${EC2InstancePrivateIP}:8081/api/opportunities/recent'
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200
+
+  # GET /v1/export/opportunities
+  ExportOpportunitiesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      ResourceId: !Ref ExportOpportunitiesResource
+      HttpMethod: GET
+      AuthorizationType: API_KEY
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.querystring.since: true
+        method.request.querystring.format: false
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub 'http://${EC2InstancePrivateIP}:8081/api/export/opportunities'
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200
+
+  # GET /v1/health
+  HealthGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      ResourceId: !Ref HealthResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub 'http://${EC2InstancePrivateIP}:8081/api/health'
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200
+
+  # GET /v1/stats
+  StatsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      ResourceId: !Ref StatsResource
+      HttpMethod: GET
+      AuthorizationType: API_KEY
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub 'http://${EC2InstancePrivateIP}:8081/api/stats'
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+      MethodResponses:
+        - StatusCode: 200
+
+  # ============================================================================
+  # Deployment
+  # ============================================================================
+
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - OpportunitiesGetMethod
+      - OpportunityDetailGetMethod
+      - OpportunitiesRecentGetMethod
+      - ExportOpportunitiesGetMethod
+      - HealthGetMethod
+      - StatsGetMethod
+    Properties:
+      RestApiId: !Ref RFPTrackerAPI
+      StageName: !Ref Environment
+      StageDescription:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 1000
+        LoggingLevel: INFO
+        DataTraceEnabled: true
+        MetricsEnabled: true
+
+  # ============================================================================
+  # Usage Plans
+  # ============================================================================
+
+  InternalUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIDeployment
+    Properties:
+      UsagePlanName: !Sub 'rfp-tracker-internal-${Environment}'
+      Description: Internal Plurilock automations
+      ApiStages:
+        - ApiId: !Ref RFPTrackerAPI
+          Stage: !Ref Environment
+      Quota:
+        Limit: 10000
+        Period: DAY
+      Throttle:
+        BurstLimit: 100
+        RateLimit: 1000
+
+  PartnerUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIDeployment
+    Properties:
+      UsagePlanName: !Sub 'rfp-tracker-partner-${Environment}'
+      Description: External partners with API access
+      ApiStages:
+        - ApiId: !Ref RFPTrackerAPI
+          Stage: !Ref Environment
+      Quota:
+        Limit: 1000
+        Period: DAY
+      Throttle:
+        BurstLimit: 20
+        RateLimit: 100
+
+  DeveloperUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIDeployment
+    Properties:
+      UsagePlanName: !Sub 'rfp-tracker-dev-${Environment}'
+      Description: Development and testing
+      ApiStages:
+        - ApiId: !Ref RFPTrackerAPI
+          Stage: !Ref Environment
+      Quota:
+        Limit: 100
+        Period: DAY
+      Throttle:
+        BurstLimit: 5
+        RateLimit: 10
+
+  # ============================================================================
+  # CloudWatch Log Group
+  # ============================================================================
+
+  APIGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/rfp-tracker-${Environment}'
+      RetentionInDays: 30
+
+  APIGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt APIGatewayCloudWatchRole.Arn
+
+  APIGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs'
+
+  # ============================================================================
+  # CloudWatch Alarms
+  # ============================================================================
+
+  API5xxErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'rfp-tracker-api-5xx-errors-${Environment}'
+      AlarmDescription: API Gateway 5xx error rate exceeds threshold
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref RFPTrackerAPI
+        - Name: Stage
+          Value: !Ref Environment
+      TreatMissingData: notBreaching
+
+  APILatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'rfp-tracker-api-high-latency-${Environment}'
+      AlarmDescription: API Gateway latency p95 exceeds 2 seconds
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 2000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Ref RFPTrackerAPI
+        - Name: Stage
+          Value: !Ref Environment
+      TreatMissingData: notBreaching
+
+  # ============================================================================
+  # Custom Domain (Optional)
+  # ============================================================================
+
+  APIDomain:
+    Type: AWS::ApiGateway::DomainName
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref DomainName
+      RegionalCertificateArn: !Ref CertificateArn
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      SecurityPolicy: TLS_1_2
+
+  APIBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref APIDomain
+      RestApiId: !Ref RFPTrackerAPI
+      Stage: !Ref Environment
+
+# ============================================================================
+# Outputs
+# ============================================================================
+
+Outputs:
+  APIEndpoint:
+    Description: API Gateway invoke URL
+    Value: !Sub 'https://${RFPTrackerAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub 'RFPTrackerAPIEndpoint-${Environment}'
+
+  CustomDomainURL:
+    Description: Custom domain URL (if configured)
+    Condition: HasCustomDomain
+    Value: !Sub 'https://${DomainName}'
+    Export:
+      Name: !Sub 'RFPTrackerCustomDomain-${Environment}'
+
+  InternalUsagePlanId:
+    Description: Internal usage plan ID
+    Value: !Ref InternalUsagePlan
+    Export:
+      Name: !Sub 'RFPTrackerInternalUsagePlan-${Environment}'
+
+  PartnerUsagePlanId:
+    Description: Partner usage plan ID
+    Value: !Ref PartnerUsagePlan
+    Export:
+      Name: !Sub 'RFPTrackerPartnerUsagePlan-${Environment}'
+
+  DeveloperUsagePlanId:
+    Description: Developer usage plan ID
+    Value: !Ref DeveloperUsagePlan
+    Export:
+      Name: !Sub 'RFPTrackerDeveloperUsagePlan-${Environment}'
+
+  APIGatewayLogGroup:
+    Description: CloudWatch Log Group for API Gateway
+    Value: !Ref APIGatewayLogGroup
+    Export:
+      Name: !Sub 'RFPTrackerAPILogGroup-${Environment}'

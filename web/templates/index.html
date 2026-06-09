@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{% if active_page == 'closed' %}Closed{% else %}Opportunities{% endif %} - PLUR RFP Tracker{% endblock %}
+
+{% block content %}
+<!-- Stats bar -->
+{% if active_page == 'closed' %}
+<div class="stats-bar">
+    <div class="stat"><span class="stat-value">{{ total }}</span> closed opportunities</div>
+    <div class="stat">Last scrape: <span class="stat-value">{{ stats.last_scrape | timeago }}</span></div>
+</div>
+{% else %}
+<div class="stats-bar">
+    <div class="stat"><span class="stat-value">{{ stats.total }}</span> opportunities</div>
+    <div class="stat"><span class="badge badge-t1">T1</span> <span class="stat-value">{{ stats.t1 }}</span></div>
+    <div class="stat"><span class="badge badge-t2">T2</span> <span class="stat-value">{{ stats.t2 }}</span></div>
+    <div class="stat"><span class="badge badge-t3">T3</span> <span class="stat-value">{{ stats.t3 }}</span></div>
+    {% if stats.new_48h %}<div class="stat"><span class="badge-new">NEW</span> <span class="stat-value">{{ stats.new_48h }}</span> in 48h</div>{% endif %}
+    <div class="stat">Last scrape: <span class="stat-value">{{ stats.last_scrape | timeago }}</span></div>
+</div>
+{% endif %}
+
+<!-- Filter bar -->
+{% set base_url = '/closed' if active_page == 'closed' else '/' %}
+<form id="filter-form"
+      hx-get="{{ base_url }}"
+      hx-target="#results"
+      hx-push-url="true"
+      hx-indicator="#loading">
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label>Tier:</label>
+            <label><input type="checkbox" name="tier" value="1" {% if 1 in filter_tier %}checked{% endif %}> T1</label>
+            <label><input type="checkbox" name="tier" value="2" {% if 2 in filter_tier %}checked{% endif %}> T2</label>
+            <label><input type="checkbox" name="tier" value="3" {% if 3 in filter_tier %}checked{% endif %}> T3</label>
+        </div>
+        <div class="filter-group">
+            <label for="source-select">Source:</label>
+            <select name="source" id="source-select">
+                <option value="">All sources</option>
+                {% for s in sources %}
+                <option value="{{ s }}" {% if s == filter_source %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="search-input">Search:</label>
+            <input type="text" name="q" id="search-input" value="{{ filter_q }}" placeholder="keyword, buyer, title...">
+        </div>
+        <div class="filter-group">
+            <label for="sort-select">Sort:</label>
+            <select name="sort" id="sort-select">
+                <option value="newest" {% if filter_sort == 'newest' %}selected{% endif %}>Newest first</option>
+                <option value="oldest" {% if filter_sort == 'oldest' %}selected{% endif %}>Oldest first</option>
+                <option value="closing_soon" {% if filter_sort == 'closing_soon' %}selected{% endif %}>Closing soonest</option>
+                <option value="closing_last" {% if filter_sort == 'closing_last' %}selected{% endif %}>Closing latest</option>
+                <option value="tier" {% if filter_sort == 'tier' %}selected{% endif %}>By tier</option>
+                <option value="buyer" {% if filter_sort == 'buyer' %}selected{% endif %}>By buyer</option>
+            </select>
+        </div>
+        <button type="submit" class="btn">Filter</button>
+        <a href="{{ base_url }}" class="btn btn-clear">Clear</a>
+        <span id="loading" class="htmx-indicator"><span class="spinner"></span></span>
+    </div>
+</form>
+
+<!-- Results (htmx target) -->
+<div id="results">
+    {% include "partials/opportunities_table.html" %}
+</div>
+{% endblock %}

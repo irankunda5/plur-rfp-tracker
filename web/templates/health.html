@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% set active_page = "health" %}
+{% block title %}Scraper Health - PLUR RFP Tracker{% endblock %}
+
+{% block content %}
+<!-- Summary cards -->
+<div class="summary-cards">
+    <div class="summary-card">
+        <div class="label">Sources</div>
+        <div class="value">{{ total_sources }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Last Successful Run</div>
+        <div class="value" style="font-size:16px;">{{ last_full | timeago }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="label">Total Errors</div>
+        <div class="value">{{ error_count }}</div>
+    </div>
+</div>
+
+<!-- Coverage note -->
+<p style="font-size:13px; color:#888; margin-bottom:12px;">Only showing scraper runs logged via the pipeline. Manual runs may not appear.</p>
+
+<!-- Runs table -->
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Found</th>
+                <th>Matched</th>
+                <th>New</th>
+                <th>Status</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            {% set start_dt = run.start_time %}
+            {% set end_dt = run.end_time %}
+            <tr>
+                <td><span class="mono">{{ run.source }}</span></td>
+                <td>{{ run.start_time | timeago }}</td>
+                <td class="mono">
+                    {% if run.end_time and run.start_time %}
+                    {{ run.end_time | duration_since(run.start_time) }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td>{{ run.records_found }}</td>
+                <td>{{ run.records_matched }}</td>
+                <td>{{ run.records_new }}</td>
+                <td>
+                    {% if run.status == 'success' %}
+                    <span class="badge badge-success">success</span>
+                    {% elif run.status == 'error' %}
+                    <span class="badge badge-error">error</span>
+                    {% else %}
+                    <span class="badge badge-running">{{ run.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if run.error_message %}
+                    <span title="{{ run.error_message }}">{{ run.error_message | truncate(60) }}</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not runs %}
+            <tr><td colspan="8" style="text-align:center; padding:24px; color:#888;">No scraper runs recorded yet.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
