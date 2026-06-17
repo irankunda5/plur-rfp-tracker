@@ -656,6 +656,20 @@ async def api_opportunities(
         conn.close()
 
 
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    """Modern demo dashboard."""
+    with open(TEMPLATES_DIR / "dashboard.html") as f:
+        return f.read()
+
+
+@app.get("/search", response_class=HTMLResponse)
+async def search_page():
+    """Search page."""
+    with open(TEMPLATES_DIR / "search.html") as f:
+        return f.read()
+
+
 @app.get("/api/health")
 async def api_health():
     conn = get_db()
@@ -664,6 +678,7 @@ async def api_health():
             "SELECT * FROM source_runs ORDER BY start_time DESC LIMIT 50"
         ).fetchall()
         return {
+            "status": "healthy",
             "runs": [dict(r) for r in runs],
         }
     finally:

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search - PLUR RFP Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex justify-between items-center">
+                <a href="/" class="text-2xl font-bold hover:opacity-80">PLUR RFP Tracker</a>
+                <nav class="flex gap-6 items-center">
+                    <a href="/" class="hover:text-purple-200">Dashboard</a>
+                    <a href="/search" class="hover:text-purple-200">Search</a>
+                    <a href="/renewals" class="hover:text-purple-200">Renewals</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Search Section -->
+        <div class="mb-8">
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Search Opportunities</h1>
+                <p class="text-gray-600 mb-6">Find public procurement opportunities from multiple sources</p>
+
+                <form id="searchForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Keywords</label>
+                            <input type="text" id="keywords" placeholder="e.g., software, consulting, supplies"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Source</label>
+                            <select id="source" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="">All Sources</option>
+                                <option value="canadabuys">CanadaBuys</option>
+                                <option value="sam_gov">SAM.gov</option>
+                                <option value="bonfire">Bonfire</option>
+                                <option value="sasktenders">SaskTenders</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Tier</label>
+                            <select id="tier" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="">All Tiers</option>
+                                <option value="1">Tier 1 (Critical)</option>
+                                <option value="2">Tier 2 (High)</option>
+                                <option value="3">Tier 3 (Medium)</option>
+                                <option value="4">Tier 4 (Low)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Closing in</label>
+                            <select id="closing" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="">Any time</option>
+                                <option value="7">Next 7 days</option>
+                                <option value="30">Next 30 days</option>
+                                <option value="90">Next 90 days</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Per Page</label>
+                            <select id="perPage" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="10">10 results</option>
+                                <option value="25">25 results</option>
+                                <option value="50">50 results</option>
+                                <option value="100">100 results</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4 pt-4">
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition">
+                            <i class="fas fa-search mr-2"></i>Search
+                        </button>
+                        <button type="reset" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg font-medium transition">
+                            Clear
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="loading" class="text-center py-12 hidden">
+            <div class="inline-block">
+                <div class="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+            </div>
+            <p class="text-gray-600 mt-4">Searching...</p>
+        </div>
+
+        <div id="results" class="space-y-4">
+            <!-- Results loaded here -->
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="mt-8 flex justify-center gap-2"></div>
+    </main>
+
+    <script>
+        let currentPage = 1;
+
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            currentPage = 1;
+            await search();
+        });
+
+        async function search(page = 1) {
+            const keywords = document.getElementById('keywords').value;
+            const source = document.getElementById('source').value;
+            const tier = document.getElementById('tier').value;
+            const perPage = document.getElementById('perPage').value;
+
+            const params = new URLSearchParams({
+                page,
+                per_page: perPage,
+                ...(keywords && { q: keywords }),
+                ...(source && { source }),
+                ...(tier && { tier }),
+            });
+
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('pagination').innerHTML = '';
+
+            try {
+                const response = await fetch(`/api/search?${params}`);
+                const data = await response.json();
+
+                displayResults(data.items || []);
+                displayPagination(data, perPage);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('results').innerHTML = '<p class="text-red-600">Error loading results</p>';
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        function displayResults(items) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            if (items.length === 0) {
+                resultsDiv.innerHTML = '<p class="text-center text-gray-600 py-8">No opportunities found</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const closingDate = new Date(item.closing_date);
+                const daysUntil = Math.ceil((closingDate - new Date()) / (1000 * 60 * 60 * 24));
+
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-lg shadow hover:shadow-lg transition p-6';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <a href="${item.url}" target="_blank" class="text-xl font-semibold text-purple-600 hover:text-purple-700">
+                                ${item.title}
+                            </a>
+                            <p class="text-gray-700 mt-2">${item.description || 'No description'}</p>
+                        </div>
+                        <a href="${item.url}" target="_blank" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition whitespace-nowrap ml-4">
+                            View <i class="fas fa-external-link-alt ml-2"></i>
+                        </a>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <p class="text-xs text-gray-600 font-medium">Source</p>
+                            <p class="text-sm font-semibold text-gray-900">${item.source}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-600 font-medium">Buyer</p>
+                            <p class="text-sm font-semibold text-gray-900">${item.buyer || '-'}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-600 font-medium">Closing Date</p>
+                            <p class="text-sm font-semibold ${daysUntil < 7 ? 'text-red-600' : 'text-gray-900'}">
+                                ${closingDate.toLocaleDateString()}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-600 font-medium">Tier</p>
+                            <span class="inline-block px-3 py-1 rounded-full text-xs font-semibold ${getTierClass(item.tier)}">
+                                Tier ${item.tier || '-'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        ${item.matched_keywords ? item.matched_keywords.split(',').slice(0, 5).map(kw => `
+                            <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded">${kw.trim()}</span>
+                        `).join('') : ''}
+                    </div>
+                `;
+
+                resultsDiv.appendChild(card);
+            });
+        }
+
+        function displayPagination(data, perPage) {
+            const paginationDiv = document.getElementById('pagination');
+            const totalPages = data.total_pages || 1;
+            const currentPage = data.page || 1;
+
+            paginationDiv.innerHTML = '';
+
+            if (currentPage > 1) {
+                const prev = document.createElement('button');
+                prev.textContent = '← Previous';
+                prev.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50';
+                prev.onclick = () => {
+                    search(currentPage - 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+                paginationDiv.appendChild(prev);
+            }
+
+            for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = i === currentPage
+                    ? 'px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold'
+                    : 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50';
+                btn.onclick = () => {
+                    search(i);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+                paginationDiv.appendChild(btn);
+            }
+
+            if (currentPage < totalPages) {
+                const next = document.createElement('button');
+                next.textContent = 'Next →';
+                next.className = 'px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50';
+                next.onclick = () => {
+                    search(currentPage + 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+                paginationDiv.appendChild(next);
+            }
+        }
+
+        function getTierClass(tier) {
+            const classes = {
+                1: 'bg-red-100 text-red-800',
+                2: 'bg-orange-100 text-orange-800',
+                3: 'bg-yellow-100 text-yellow-800',
+                4: 'bg-green-100 text-green-800',
+            };
+            return classes[tier] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Load initial results
+        search();
+    </script>
+</body>
+</html>

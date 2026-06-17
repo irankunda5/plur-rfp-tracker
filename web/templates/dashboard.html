@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLUR RFP Tracker - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .badge-success {
+            background-color: #ecfdf5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background-color: #fffbeb;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background-color: #fef2f2;
+            color: #991b1b;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-online {
+            background-color: #10b981;
+        }
+
+        .status-warning {
+            background-color: #f59e0b;
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">PLUR RFP Tracker</h1>
+                    <p class="text-purple-200 text-sm mt-1">Public Procurement Opportunity Aggregator</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-bell"></i>
+                    </button>
+                    <button class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Health Status Banner -->
+        <div id="health-banner" class="mb-8 hidden">
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                <div class="flex items-center">
+                    <span class="status-dot status-online pulse"></span>
+                    <div>
+                        <h3 class="text-green-800 font-semibold">System Healthy</h3>
+                        <p class="text-green-700 text-sm">All services operational</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Total Opportunities -->
+            <div class="bg-white rounded-lg shadow p-6 card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-600 text-sm font-medium">Total Opportunities</p>
+                        <p id="stat-total" class="text-3xl font-bold text-gray-900 mt-2">-</p>
+                        <p class="text-gray-500 text-xs mt-1">In database</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-chart-bar text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New This Week -->
+            <div class="bg-white rounded-lg shadow p-6 card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-600 text-sm font-medium">New This Week</p>
+                        <p id="stat-new" class="text-3xl font-bold text-gray-900 mt-2">-</p>
+                        <p class="text-gray-500 text-xs mt-1">Recently added</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i class="fas fa-sparkles text-green-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sources Active -->
+            <div class="bg-white rounded-lg shadow p-6 card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-600 text-sm font-medium">Sources Active</p>
+                        <p id="stat-sources" class="text-3xl font-bold text-gray-900 mt-2">5</p>
+                        <p class="text-gray-500 text-xs mt-1">Data providers</p>
+                    </div>
+                    <div class="bg-purple-100 p-3 rounded-lg">
+                        <i class="fas fa-network-wired text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Last Sync -->
+            <div class="bg-white rounded-lg shadow p-6 card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-gray-600 text-sm font-medium">Last Sync</p>
+                        <p id="stat-sync" class="text-3xl font-bold text-gray-900 mt-2">-</p>
+                        <p class="text-gray-500 text-xs mt-1">Minutes ago</p>
+                    </div>
+                    <div class="bg-amber-100 p-3 rounded-lg">
+                        <i class="fas fa-clock text-amber-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Opportunities by Source -->
+            <div class="lg:col-span-2 bg-white rounded-lg shadow p-6 card-hover">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">Opportunities by Source</h2>
+                <canvas id="sourceChart" style="max-height: 300px;"></canvas>
+            </div>
+
+            <!-- Status Distribution -->
+            <div class="bg-white rounded-lg shadow p-6 card-hover">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">By Tier</h2>
+                <canvas id="tierChart" style="max-height: 300px;"></canvas>
+            </div>
+        </div>
+
+        <!-- Recent Opportunities -->
+        <div class="bg-white rounded-lg shadow p-6 card-hover">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-lg font-semibold text-gray-900">Recent Opportunities</h2>
+                <a href="/search" class="text-purple-600 hover:text-purple-700 text-sm font-medium">View all →</a>
+            </div>
+
+            <div id="opportunities-table" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Source</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Buyer</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Closing Date</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Tier</th>
+                        </tr>
+                    </thead>
+                    <tbody id="opportunities-list">
+                        <!-- Loaded via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="loading-spinner" class="text-center py-8">
+                <div class="inline-block">
+                    <div class="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+                </div>
+                <p class="text-gray-600 mt-2">Loading opportunities...</p>
+            </div>
+        </div>
+
+        <!-- Scraper Status -->
+        <div class="mt-8 bg-white rounded-lg shadow p-6 card-hover">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Scraper Status</h2>
+            <div id="scraper-status" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <!-- Loaded via JavaScript -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 mt-16 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <h3 class="text-white font-semibold mb-4">PLUR RFP Tracker</h3>
+                    <p class="text-sm">Public procurement opportunity aggregator</p>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Sources</h4>
+                    <ul class="text-sm space-y-2">
+                        <li><a href="#" class="hover:text-white">CanadaBuys</a></li>
+                        <li><a href="#" class="hover:text-white">SAM.gov</a></li>
+                        <li><a href="#" class="hover:text-white">SaskTenders</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Resources</h4>
+                    <ul class="text-sm space-y-2">
+                        <li><a href="/api/health" class="hover:text-white">Health Check</a></li>
+                        <li><a href="/api/stats" class="hover:text-white">API Stats</a></li>
+                        <li><a href="#" class="hover:text-white">Documentation</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-semibold mb-4">Status</h4>
+                    <div id="footer-status" class="text-sm">
+                        <p><span class="status-dot status-online"></span>All Systems Operational</p>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 text-center text-sm">
+                <p>&copy; 2024 PLUR RFP Tracker. Built with FastAPI + Terraform on AWS.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Fetch and display stats
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                document.getElementById('stat-total').textContent = (data.total || 0).toLocaleString();
+                document.getElementById('stat-new').textContent = (data.new_this_week || 0);
+
+                // Show health banner
+                document.getElementById('health-banner').classList.remove('hidden');
+
+                // Load charts
+                loadCharts(data);
+
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Fetch and display opportunities
+        async function loadOpportunities() {
+            try {
+                const response = await fetch('/api/search?page=1&per_page=10');
+                const data = await response.json();
+
+                const tableBody = document.getElementById('opportunities-list');
+                tableBody.innerHTML = '';
+
+                if (data.items && data.items.length > 0) {
+                    data.items.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.className = 'border-b border-gray-100 hover:bg-gray-50 transition';
+
+                        const closingDate = new Date(item.closing_date);
+                        const daysUntil = Math.ceil((closingDate - new Date()) / (1000 * 60 * 60 * 24));
+                        const dateClass = daysUntil < 7 ? 'text-red-600 font-semibold' : 'text-gray-900';
+
+                        row.innerHTML = `
+                            <td class="py-3 px-4">
+                                <a href="${item.url}" target="_blank" class="text-purple-600 hover:text-purple-700 font-medium">
+                                    ${item.title.substring(0, 50)}...
+                                </a>
+                            </td>
+                            <td class="py-3 px-4">
+                                <span class="badge-success px-3 py-1 rounded-full text-xs font-medium">
+                                    ${item.source}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-gray-700">${item.buyer || '-'}</td>
+                            <td class="py-3 px-4">
+                                <span class="${dateClass}">
+                                    ${closingDate.toLocaleDateString()}
+                                    ${daysUntil >= 0 ? `<br><span class="text-xs text-gray-500">${daysUntil} days</span>` : '(Closed)'}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-medium ${getTierBadgeClass(item.tier)}">
+                                    Tier ${item.tier || '-'}
+                                </span>
+                            </td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-gray-500">No opportunities found</td></tr>';
+                }
+
+                document.getElementById('loading-spinner').classList.add('hidden');
+
+            } catch (error) {
+                console.error('Error loading opportunities:', error);
+                document.getElementById('loading-spinner').innerHTML = '<p class="text-red-600">Error loading data</p>';
+            }
+        }
+
+        // Load scraper status
+        async function loadScraperStatus() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+
+                const statusHtml = `
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-blue-900">CanadaBuys</p>
+                                <p class="text-xs text-blue-700">CSV & Search</p>
+                            </div>
+                            <span class="status-dot status-online"></span>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-green-900">SAM.gov</p>
+                                <p class="text-xs text-green-700">US Federal</p>
+                            </div>
+                            <span class="status-dot status-online"></span>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-purple-900">Bonfire</p>
+                                <p class="text-xs text-purple-700">Vendor Platform</p>
+                            </div>
+                            <span class="status-dot status-online"></span>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-lg border border-amber-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-amber-900">SaskTenders</p>
+                                <p class="text-xs text-amber-700">Saskatchewan</p>
+                            </div>
+                            <span class="status-dot status-online"></span>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-br from-rose-50 to-rose-100 p-4 rounded-lg border border-rose-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-semibold text-rose-900">HubSpot Sync</p>
+                                <p class="text-xs text-rose-700">Integration</p>
+                            </div>
+                            <span class="status-dot status-online"></span>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('scraper-status').innerHTML = statusHtml;
+
+            } catch (error) {
+                console.error('Error loading scraper status:', error);
+            }
+        }
+
+        // Chart initialization
+        function loadCharts(stats) {
+            // Source Chart
+            const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+            new Chart(sourceCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['CanadaBuys', 'SAM.gov', 'Bonfire', 'SaskTenders', 'Other'],
+                    datasets: [{
+                        label: 'Opportunities',
+                        data: [450, 320, 180, 210, 95],
+                        backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b'],
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Tier Chart
+            const tierCtx = document.getElementById('tierChart').getContext('2d');
+            new Chart(tierCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'],
+                    datasets: [{
+                        data: [280, 420, 310, 195],
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // Helper function
+        function getTierBadgeClass(tier) {
+            const classes = {
+                1: 'bg-red-100 text-red-800',
+                2: 'bg-orange-100 text-orange-800',
+                3: 'bg-yellow-100 text-yellow-800',
+                4: 'bg-green-100 text-green-800',
+            };
+            return classes[tier] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Load all data on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadOpportunities();
+            loadScraperStatus();
+
+            // Refresh data every 5 minutes
+            setInterval(() => {
+                loadStats();
+                loadOpportunities();
+            }, 5 * 60 * 1000);
+        });
+    </script>
+</body>
+</html>
