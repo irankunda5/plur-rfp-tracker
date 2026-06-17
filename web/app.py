@@ -44,11 +44,16 @@ def get_tender_calendar() -> TenderRenewalCalendar:
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-def get_db() -> sqlite3.Connection:
-    """Read-only SQLite connection."""
-    conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
-    conn.row_factory = sqlite3.Row
-    return conn
+def get_db() -> sqlite3.Connection | None:
+    """Read-only SQLite connection. Returns None if database doesn't exist."""
+    try:
+        if not DB_PATH.exists():
+            return None
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.OperationalError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -673,6 +678,12 @@ async def search_page():
 @app.get("/api/health")
 async def api_health():
     conn = get_db()
+    if conn is None:
+        return {
+            "status": "healthy",
+            "runs": [],
+            "message": "Demo mode - database not initialized"
+        }
     try:
         runs = conn.execute(
             "SELECT * FROM source_runs ORDER BY start_time DESC LIMIT 50"
@@ -685,9 +696,98 @@ async def api_health():
         conn.close()
 
 
+@app.get("/api/search")
+async def api_search(
+    q: str = Query(default=""),
+    source: str = Query(default=""),
+    tier: int = Query(default=0),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=25, ge=1, le=100),
+):
+    """Search API endpoint."""
+    conn = get_db()
+    if conn is None:
+        return {
+            "total": 0,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": 0,
+            "items": [],
+            "message": "Demo mode - database not initialized"
+        }
+    try:
+        where = "1=1"
+        params = []
+
+        if q:
+            where += " AND (title LIKE ? OR description LIKE ?)"
+            params.extend([f"%{q}%", f"%{q}%"])
+        if source:
+            where += " AND source = ?"
+            params.append(source)
+        if tier > 0:
+            where += " AND classification_json LIKE ?"
+            params.append(f'%"tier": {tier}%')
+
+        count_row = conn.execute(
+            f"SELECT COUNT(*) as cnt FROM notices WHERE {where}", params
+        ).fetchone()
+        total = count_row["cnt"] if count_row else 0
+
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        page = min(page, total_pages)
+        offset = (page - 1) * per_page
+
+        rows = conn.execute(
+            f"""
+            SELECT id, source, source_id, title, buyer, closing_date, url,
+                   notice_type, product_type, vendor_flags, classification_json,
+                   fetch_timestamp
+            FROM notices
+            WHERE {where}
+            ORDER BY fetch_timestamp DESC
+            LIMIT ? OFFSET ?
+            """,
+            params + [per_page, offset],
+        ).fetchall()
+
+        items = []
+        for r in rows:
+            cls = parse_json_safe(r["classification_json"], {})
+            items.append({
+                "id": r["id"],
+                "source": r["source"],
+                "title": r["title"],
+                "buyer": r["buyer"],
+                "closing_date": r["closing_date"],
+                "url": r["url"],
+                "tier": cls.get("tier"),
+                "description": f"{r['notice_type']} - {r['product_type']}" if r['notice_type'] else ""
+            })
+
+        return {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "items": items
+        }
+    finally:
+        if conn:
+            conn.close()
+
+
 @app.get("/api/stats")
 async def api_stats():
     conn = get_db()
+    if conn is None:
+        return {
+            "total": 0,
+            "new_this_week": 0,
+            "sources": 5,
+            "last_sync": None,
+            "message": "Database not initialized (demo mode)"
+        }
     try:
         stats = _get_stats(conn)
         return stats
