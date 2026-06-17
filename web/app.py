@@ -283,6 +283,29 @@ def _list_opportunities(
 ) -> HTMLResponse:
     """Shared handler for open and closed opportunity listing pages."""
     conn = get_db()
+
+    # Demo mode - no database
+    if conn is None:
+        ctx = {
+            "request": request,
+            "notices": [],
+            "stats": {"total": 0, "t1": 0, "t2": 0, "t3": 0, "new_48h": 0, "last_scrape": None},
+            "sources": ["CanadaBuys", "SAM.gov", "Bonfire", "SaskTenders"],
+            "total": 0,
+            "page": 1,
+            "total_pages": 1,
+            "per_page": 25,
+            "filter_tier": tier,
+            "filter_source": source,
+            "filter_q": q,
+            "filter_sort": sort,
+            "sort_options": SORT_OPTIONS,
+            "active_page": "closed" if closed else "opportunities",
+            "demo_mode": True,
+            "demo_message": "Demo mode - database not initialized. Real data will appear after deployment.",
+        }
+        return templates.TemplateResponse(request, "index.html", ctx)
+
     try:
         where, params, order_by = _build_opportunities_query(
             tier=tier or None,
@@ -357,6 +380,17 @@ async def index(
 async def opportunity_detail(request: Request, notice_id: int):
     """Detail page for a single opportunity."""
     conn = get_db()
+    if conn is None:
+        return HTMLResponse(
+            "<div style='padding:20px; text-align:center;'>"
+            "<h1>Demo Mode</h1>"
+            "<p>Detail page not available in demo mode.</p>"
+            "<p>Data will be available after deployment.</p>"
+            "<a href='/' style='color:blue;'>← Back to dashboard</a>"
+            "</div>",
+            status_code=404
+        )
+
     try:
         row = conn.execute("SELECT * FROM notices WHERE id = ?", (notice_id,)).fetchone()
         if not row:
@@ -553,6 +587,18 @@ async def renewals_page(
 @app.get("/health", response_class=HTMLResponse)
 async def health_page(request: Request):
     conn = get_db()
+    if conn is None:
+        ctx = {
+            "request": request,
+            "runs": [],
+            "total_sources": 5,
+            "last_full": None,
+            "error_count": 0,
+            "demo_mode": True,
+            "demo_message": "Demo mode - database not initialized",
+        }
+        return templates.TemplateResponse(request, "health.html", ctx)
+
     try:
         runs = conn.execute(
             """
@@ -600,6 +646,16 @@ async def api_opportunities(
     per_page: int = Query(default=25, ge=1, le=100),
 ):
     conn = get_db()
+    if conn is None:
+        return {
+            "total": 0,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": 0,
+            "items": [],
+            "demo_mode": True
+        }
+
     try:
         where, params, _ = _build_opportunities_query(
             tier=tier or None,
