@@ -1,9 +1,13 @@
 resource "aws_db_subnet_group" "main" {
-  name       = "${var.app_name}-db-subnet-group"
-  subnet_ids = data.aws_subnets.default.ids
+  name_prefix = "${var.app_name}-db-subnet-"
+  subnet_ids  = data.aws_subnets.default.ids
 
   tags = {
     Name = "${var.app_name}-db-subnet-group"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -48,7 +52,7 @@ resource "aws_db_instance" "main" {
   publicly_accessible     = false
   skip_final_snapshot     = false
   final_snapshot_identifier = "${var.app_name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-  backup_retention_period = var.db_backup_retention_days
+  backup_retention_period = 1
   backup_window           = "03:00-04:00"
   maintenance_window      = "sun:04:00-sun:05:00"
   copy_tags_to_snapshot   = true

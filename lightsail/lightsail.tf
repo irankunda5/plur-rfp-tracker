@@ -5,6 +5,7 @@ resource "aws_lightsail_instance" "app" {
   bundle_id         = var.lightsail_bundle_id
 
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
+    app_name           = var.app_name
     rds_endpoint       = aws_db_instance.main.address
     rds_port           = aws_db_instance.main.port
     rds_username       = var.db_username
@@ -34,37 +35,6 @@ resource "aws_lightsail_static_ip_attachment" "app" {
   static_ip_name    = aws_lightsail_static_ip.app.name
   instance_name     = aws_lightsail_instance.app.name
   depends_on        = [aws_lightsail_instance.app]
-}
-
-resource "aws_lightsail_firewall" "app" {
-  name            = "${var.app_name}-firewall"
-  instance_name   = aws_lightsail_instance.app.name
-
-  # HTTP
-  ingress_rule {
-    protocol  = "tcp"
-    from_port = 80
-    to_port   = 80
-    cidr_ipv4 = "0.0.0.0/0"
-  }
-
-  # HTTPS
-  ingress_rule {
-    protocol  = "tcp"
-    from_port = 443
-    to_port   = 443
-    cidr_ipv4 = "0.0.0.0/0"
-  }
-
-  # SSH (for debugging)
-  ingress_rule {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
-    cidr_ipv4 = "0.0.0.0/0"
-  }
-
-  depends_on = [aws_lightsail_instance.app]
 }
 
 resource "aws_lightsail_instance_public_ports" "app" {

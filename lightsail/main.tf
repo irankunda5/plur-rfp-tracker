@@ -24,7 +24,6 @@ provider "aws" {
       Project     = "PLUR-RFP-Tracker"
       Environment = var.environment
       ManagedBy   = "Terraform"
-      DeployedAt  = timestamp()
     }
   }
 }

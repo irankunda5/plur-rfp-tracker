@@ -43,6 +43,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup" {
   rule {
     id     = "archive-old-backups"
     status = "Enabled"
+    filter {}
 
     transition {
       days          = 30

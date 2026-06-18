@@ -57,3 +57,5 @@ htmlcov/
 # Temporary files
 *.tmp
 *.bak
+lightsail/.terraform/
+lightsail/.terraform.lock.hcl

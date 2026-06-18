@@ -12,13 +12,13 @@ db_instance_class      = "db.t3.micro"  # Cheapest: ~$16/month. Use db.t3.small 
 db_allocated_storage   = 20
 db_backup_retention_days = 30
 db_username            = "rfpAdmin"
-db_password            = "Michel@Plurilock2026"  # Min 8 chars, uppercase, lowercase, number, symbol
+db_password            = "Plurilock2026Admin!"  # Min 8 chars, uppercase, lowercase, number, symbol
 
 # Application Configuration
 app_port           = 8081
 domain_name        = ""  # Leave empty for IP-based access, or set to your domain (e.g., rfp-tracker.example.com)
 enable_https       = true
-app_github_repo    = "https://github.com/aronhsiao-pl/plur-rfp-tracker-v2.git"
+app_github_repo    = "https://github.com/aronhsiao-pl/plur-rfp-tracker-v2"
 app_github_branch  = "deployment/lightsail"
 
 # S3 Backup Configuration
