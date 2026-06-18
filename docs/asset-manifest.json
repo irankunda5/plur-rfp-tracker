@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/plur-rfp-tracker-v2/static/css/main.87774bea.css",
+    "main.js": "/plur-rfp-tracker-v2/static/js/main.de27380c.js",
+    "index.html": "/plur-rfp-tracker-v2/index.html",
+    "main.87774bea.css.map": "/plur-rfp-tracker-v2/static/css/main.87774bea.css.map",
+    "main.de27380c.js.map": "/plur-rfp-tracker-v2/static/js/main.de27380c.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.87774bea.css",
+    "static/js/main.de27380c.js"
+  ]
+}
