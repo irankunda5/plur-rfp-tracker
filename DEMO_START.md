@@ -20,7 +20,8 @@ docker-compose up
 
 **Dashboard (Stats & Charts):**
 ```
-http://localhost:8081/
+http://localh
+ost:8081/
 ```
 
 **Search (Advanced Filtering):**
