@@ -1,13 +1,13 @@
 {
+  "root": "frontend",
   "buildCommand": "npm run build",
   "outputDirectory": "build",
+  "framework": "react",
+  "nodeVersion": "18.x",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "REACT_APP_API_URL": "http://52.207.113.238"
-  }
+  ]
 }
