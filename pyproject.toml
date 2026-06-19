@@ -1,0 +1,6 @@
+[build-system]
+requires = ["setuptools"]
+
+[tool.vercel]
+# This frontend-only project uses static hosting
+# All backend is on AWS Lightsail (52.207.113.238)
