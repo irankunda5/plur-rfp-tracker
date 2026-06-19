@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -11,11 +11,7 @@ function App() {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://52.207.113.238';
 
-  useEffect(() => {
-    fetchRfps();
-  }, []);
-
-  const fetchRfps = async () => {
+  const fetchRfps = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -27,7 +23,11 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
+
+  useEffect(() => {
+    fetchRfps();
+  }, [fetchRfps]);
 
   const filteredRfps = rfps.filter(rfp => {
     const matchesFilter = filter === 'all' || rfp.status === filter;
