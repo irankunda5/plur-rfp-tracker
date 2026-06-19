@@ -2,66 +2,95 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 
+const DEMO_DATA = [
+  {
+    title: "Federal IT Infrastructure Modernization RFP",
+    organization: "Department of Defense",
+    status: "active",
+    deadline: "2026-08-15",
+    value: "$50,000,000",
+    description: "Seeking qualified contractors for comprehensive IT infrastructure modernization including cloud migration, cybersecurity enhancements, and legacy system replacement.",
+    url: "https://www.fbo.gov/"
+  },
+  {
+    title: "Healthcare Data Analytics Platform",
+    organization: "Centers for Medicare & Medicaid Services",
+    status: "active",
+    deadline: "2026-07-30",
+    value: "$15,000,000",
+    description: "Request for proposals to develop and implement an advanced data analytics platform for healthcare cost and quality measurement.",
+    url: "https://www.fbo.gov/"
+  },
+  {
+    title: "Cybersecurity Framework Implementation",
+    organization: "National Institute of Standards and Technology",
+    status: "upcoming",
+    deadline: "2026-09-15",
+    value: "$5,000,000",
+    description: "RFP for implementation of updated NIST cybersecurity framework across federal agencies.",
+    url: "https://www.fbo.gov/"
+  },
+  {
+    title: "Legacy System Migration Project",
+    organization: "Social Security Administration",
+    status: "closed",
+    deadline: "2026-06-30",
+    value: "$25,000,000",
+    description: "Closed RFP for migration of legacy mainframe systems to modern cloud infrastructure. Winner announced.",
+    url: "https://www.fbo.gov/"
+  }
+];
+
 function App() {
-  const [rfps, setRfps] = useState([]);
+  const [rfps, setRfps] = useState(DEMO_DATA);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [useBackend, setUseBackend] = useState(true);
+  const [backendStatus, setBackendStatus] = useState('checking');
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://52.207.113.238';
+
+  const checkBackendHealth = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/health`, { timeout: 5000 });
+      setBackendStatus('online');
+      return true;
+    } catch (err) {
+      setBackendStatus('offline');
+      console.warn('Backend offline, using demo data');
+      return false;
+    }
+  }, [API_BASE_URL]);
 
   const fetchRfps = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/rfps`);
-      setRfps(response.data);
+      if (useBackend) {
+        const response = await axios.get(`${API_BASE_URL}/api/rfps`, { timeout: 5000 });
+        setRfps(response.data);
+        setError(null);
+      } else {
+        setRfps(DEMO_DATA);
+      }
     } catch (err) {
       console.error('Error fetching RFPs:', err);
-      // Fallback to demo data if backend is down
-      setRfps([
-        {
-          title: "Federal IT Infrastructure Modernization RFP",
-          organization: "Department of Defense",
-          status: "active",
-          deadline: "2026-08-15",
-          value: "$50,000,000",
-          description: "Seeking qualified contractors for comprehensive IT infrastructure modernization including cloud migration, cybersecurity enhancements, and legacy system replacement.",
-          url: "https://www.fbo.gov/"
-        },
-        {
-          title: "Healthcare Data Analytics Platform",
-          organization: "Centers for Medicare & Medicaid Services",
-          status: "active",
-          deadline: "2026-07-30",
-          value: "$15,000,000",
-          description: "Request for proposals to develop and implement an advanced data analytics platform for healthcare cost and quality measurement.",
-          url: "https://www.fbo.gov/"
-        },
-        {
-          title: "Cybersecurity Framework Implementation",
-          organization: "National Institute of Standards and Technology",
-          status: "upcoming",
-          deadline: "2026-09-15",
-          value: "$5,000,000",
-          description: "RFP for implementation of updated NIST cybersecurity framework across federal agencies.",
-          url: "https://www.fbo.gov/"
-        },
-        {
-          title: "Legacy System Migration Project",
-          organization: "Social Security Administration",
-          status: "closed",
-          deadline: "2026-06-30",
-          value: "$25,000,000",
-          description: "Closed RFP for migration of legacy mainframe systems to modern cloud infrastructure. Winner announced.",
-          url: "https://www.fbo.gov/"
-        }
-      ]);
+      setRfps(DEMO_DATA);
+      if (useBackend) {
+        setError('Backend unavailable - showing demo data');
+        setBackendStatus('offline');
+      }
     } finally {
       setLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, useBackend]);
+
+  useEffect(() => {
+    checkBackendHealth();
+  }, [checkBackendHealth]);
 
   useEffect(() => {
     fetchRfps();
@@ -88,6 +117,10 @@ function App() {
         <div className="header-content">
           <h1>PLUR RFP Tracker</h1>
           <p>Real-time RFP tracking and analysis</p>
+        </div>
+        <div className="backend-status">
+          <span className={`status-indicator ${backendStatus}`}></span>
+          <span className="status-text">{backendStatus === 'checking' ? 'Checking...' : `Backend: ${backendStatus}`}</span>
         </div>
       </header>
 
@@ -133,6 +166,13 @@ function App() {
           <button className="refresh-btn" onClick={fetchRfps} disabled={loading}>
             {loading ? 'Loading...' : 'Refresh'}
           </button>
+          <button
+            className={`mode-btn ${useBackend ? 'backend' : 'demo'}`}
+            onClick={() => setUseBackend(!useBackend)}
+            title={useBackend ? 'Click to use demo data' : 'Click to use backend'}
+          >
+            {useBackend ? 'Backend Mode' : 'Demo Mode'}
+          </button>
         </div>
 
         {error && <div className="error-message">{error}</div>}
@@ -173,7 +213,7 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>PLUR RFP Tracker • Backend: {API_BASE_URL}</p>
+        <p>PLUR RFP Tracker • Data Source: {useBackend ? API_BASE_URL : 'Demo'}</p>
       </footer>
     </div>
   );

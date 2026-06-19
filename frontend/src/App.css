@@ -24,6 +24,46 @@
   opacity: 0.9;
 }
 
+.backend-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 15px;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.online {
+  background-color: #10b981;
+}
+
+.status-indicator.offline {
+  background-color: #ef4444;
+  animation: none;
+}
+
+.status-indicator.checking {
+  background-color: #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .main {
   flex: 1;
   padding: 40px 20px;
@@ -151,6 +191,30 @@
 .refresh-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.mode-btn {
+  padding: 10px 16px;
+  background: #764ba2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.mode-btn:hover {
+  background: #667eea;
+  transform: scale(1.05);
+}
+
+.mode-btn.backend {
+  background: #667eea;
+}
+
+.mode-btn.demo {
+  background: #f59e0b;
 }
 
 .error-message {
