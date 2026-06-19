@@ -1,0 +1,16 @@
+web/
+pyproject.toml
+Dockerfile
+docker-compose.yml
+requirements.txt
+*.py
+config.py
+run.py
+test_extraction.py
+lightsail/
+scripts/
+scrapers/
+tests/
+data/
+linux-scripts/
+infrastructure/
